@@ -8,6 +8,18 @@ export const CLINICIANS: Clinician[] = [
 
 export const HOSPITALS = [...new Set(CLINICIANS.map((c) => c.hospital))];
 
+export type DoctorId = "d1" | "d2" | "d3";
+export interface CareStatus { status: "pending" | "done"; completedAt?: string | undefined }
+export const FINDING_DOCTORS: Record<string, DoctorId> = { f1: "d2", f2: "d3", f3: "d1", f4: "d1", f5: "d1", f6: "d1", f7: "d1" };
+
+export function careStatus(patient: { status: "pending" | "done"; completedAt?: string | undefined; doctorStatuses?: Partial<Record<DoctorId, CareStatus>> | undefined }, doctorId: string): CareStatus {
+  return patient.doctorStatuses?.[doctorId as DoctorId] ?? (doctorId === "d1" ? { status: patient.status, completedAt: patient.completedAt } : { status: "pending" });
+}
+
+export function conversation<T extends { doctor: string }>(messages: T[], doctorName: string): T[] {
+  return messages.filter((m) => m.doctor === doctorName);
+}
+
 /** Hospital for a record: explicit value first, otherwise the author's hospital. */
 export function hospitalOf(by: string, explicit?: string): string {
   return explicit || CLINICIANS.find((c) => c.name === by)?.hospital || "Other provider";

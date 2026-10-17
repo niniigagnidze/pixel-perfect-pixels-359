@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { appendMockMessage, markMockThreadRead, readMockDirectory, readMockThreads, saveMockPatient } from "./mock-users.server";
-import { patientIdSchema, savePatientSchema, sendMessageSchema } from "./mock-users";
-import { z } from "zod";
+import { markReadSchema, savePatientSchema, sendMessageSchema } from "./mock-users";
 
 // Public read only: these tables contain fixed fictional fixtures, not clinical accounts.
 export const getMockDirectory = createServerFn({ method: "GET" }).handler(() => readMockDirectory());
@@ -18,5 +17,5 @@ export const sendMockMessage = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => sendMessageSchema.parse(data))
   .handler(({ data }) => appendMockMessage(data));
 export const markMockRead = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) => z.object({ patientId: patientIdSchema, viewer: z.enum(["patient", "doctor"]) }).parse(data))
+  .inputValidator((data: unknown) => markReadSchema.parse(data))
   .handler(({ data }) => markMockThreadRead(data));
