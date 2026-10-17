@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import type { Database } from "@/integrations/supabase/types";
 import { mapMockPatients, mockUserSchema, mockPersonaSchema } from "./mock-users";
+import { CLINICIANS, FINDING_DOCTORS } from "./hospitals";
 
 export async function readMockDirectory() {
   const url = process.env["SUPABASE_URL"];
@@ -19,7 +20,7 @@ export async function readMockDirectory() {
   });
   const [users, patients, personas] = await Promise.all([
     client.from("mock_users").select("id,display_name,email,is_mock").eq("is_mock", true).order("id"),
-    client.from("mock_patients").select("id,assigned_doctor_id,sample_ssn,dob,blood_type,allergies,status,diagnoses,prescriptions,completed_at,is_mock,finding_reviews,messages").eq("is_mock", true).eq("assigned_doctor_id", "d1").order("id"),
+    client.from("mock_patients").select("id,assigned_doctor_id,sample_ssn,dob,blood_type,allergies,status,diagnoses,prescriptions,completed_at,is_mock,finding_reviews,messages,doctor_statuses").eq("is_mock", true).order("id"),
     client.from("mock_personas").select("user_id,persona,is_mock").eq("is_mock", true).order("user_id"),
   ]);
   if (users.error || patients.error || personas.error) {
@@ -34,23 +35,22 @@ export async function readMockDirectory() {
 }
 
 export async function saveMockPatient(input: import("./mock-users").SavePatientInput) {
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { error } = await supabaseAdmin
-    .from("mock_patients")
-    .update({
-      status: input.status,
-      completed_at: input.completedAt,
-      diagnoses: input.diagnoses,
-      prescriptions: input.prescriptions,
-      finding_reviews: input.findingReviews,
-    })
-    .eq("id", input.patientId)
-    .eq("is_mock", true);
-  if (error) {
-    console.error("Mock patient save failed", error.code);
-    throw new Error("Could not save the change. Please try again.");
-  }
-  return { ok: true };
+  const doctor = CLINICIANS.find((d) => d.id === input.doctorId);
+  if (!doctor) throw new Error("Unknown sample doctor");
+  const { mockPatientSchema } = await import("./mock-users");
+  return updateSample(input.patientId, (row) => {
+    const current = mockPatientSchema.parse(row);
+    const own = (entry: { by: string }) => entry.by === doctor.name;
+    const reviews = Object.fromEntries(Object.entries(current.finding_reviews).filter(([id]) => FINDING_DOCTORS[id] !== input.doctorId));
+    for (const [id, review] of Object.entries(input.findingReviews)) if (FINDING_DOCTORS[id] === input.doctorId) reviews[id] = review;
+    return {
+      ...(input.doctorId === "d1" ? { status: input.status, completed_at: input.completedAt } : {}),
+      doctor_statuses: { ...current.doctor_statuses, [input.doctorId]: { status: input.status, completedAt: input.completedAt } },
+      diagnoses: [...input.diagnoses.filter(own).map((d) => ({ ...d, hospital: doctor.hospital })), ...current.diagnoses.filter((d) => !own(d))],
+      prescriptions: [...input.prescriptions.filter(own).map((r) => ({ ...r, hospital: doctor.hospital })), ...current.prescriptions.filter((r) => !own(r))],
+      finding_reviews: reviews,
+    };
+  });
 }
 
 
@@ -58,33 +58,40 @@ async function admin() {
   return (await import("@/integrations/supabase/client.server")).supabaseAdmin;
 }
 
-export async function readMockThreads() {
+type PatientRow = Database["public"]["Tables"]["mock_patients"]["Row"];
+type PatientUpdate = Database["public"]["Tables"]["mock_patients"]["Update"];
+
+// Optimistic row locking keeps simultaneous hospital updates and chat appends intact.
+async function updateSample(patientId: string, change: (row: PatientRow) => PatientUpdate) {
   const db = await admin();
-  const { data, error } = await db.from("mock_patients").select("id,messages").eq("is_mock", true).eq("assigned_doctor_id", "d1");
-  if (error) throw new Error("Could not load messages.");
-  const { z } = await import("zod");
-  const { messageSchema } = await import("./mock-users");
-  return Object.fromEntries((data ?? []).map((r) => [r.id, z.array(messageSchema).catch([]).parse(r.messages ?? [])]));
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const { data, error } = await db.from("mock_patients").select("*").eq("id", patientId).eq("is_mock", true).single();
+    if (error) throw new Error("Could not load the sample record.");
+    const { data: saved, error: saveError } = await db.from("mock_patients").update({ ...change(data), revision: data.revision + 1 }).eq("id", patientId).eq("is_mock", true).eq("revision", data.revision).select("id");
+    if (saveError) throw new Error("Could not save the change. Please try again.");
+    if (saved?.length) return { ok: true };
+  }
+  throw new Error("Record is busy. Please try again.");
+}
+
+export async function readMockThreads() {
+  const { patients } = await readMockDirectory();
+  return Object.fromEntries(patients.map((p) => [p.id, p.messages ?? []]));
 }
 
 export async function appendMockMessage(input: import("./mock-users").SendMessageInput) {
-  const db = await admin();
-  const { data, error } = await db.from("mock_patients").select("messages").eq("id", input.patientId).eq("is_mock", true).single();
-  if (error) throw new Error("Could not send the message. Please try again.");
-  const existing = (Array.isArray(data.messages) ? data.messages : []) as { id: string }[];
-  if (existing.some((m) => m.id === input.message.id)) return { ok: true };
-  const next = [...existing, input.message].slice(-500);
-  const { error: upErr } = await db.from("mock_patients").update({ messages: next }).eq("id", input.patientId).eq("is_mock", true);
-  if (upErr) throw new Error("Could not send the message. Please try again.");
-  return { ok: true };
+  const { messageSchema } = await import("./mock-users");
+  return updateSample(input.patientId, (row) => {
+    const existing = z.array(messageSchema).parse(row.messages ?? []);
+    if (existing.some((m) => m.id === input.message.id)) return {};
+    if (existing.length >= 2000) throw new Error("This sample conversation is full.");
+    return { messages: [...existing, { ...input.message, read: false }] };
+  });
 }
 
-export async function markMockThreadRead(input: { patientId: string; viewer: "patient" | "doctor" }) {
-  const db = await admin();
-  const { data, error } = await db.from("mock_patients").select("messages").eq("id", input.patientId).eq("is_mock", true).single();
-  if (error) return { ok: false };
-  const list = (Array.isArray(data.messages) ? data.messages : []) as { from: string; read?: boolean }[];
-  if (!list.some((m) => m.from !== input.viewer && !m.read)) return { ok: true };
-  await db.from("mock_patients").update({ messages: list.map((m) => (m.from !== input.viewer ? { ...m, read: true } : m)) }).eq("id", input.patientId).eq("is_mock", true);
-  return { ok: true };
+export async function markMockThreadRead(input: z.infer<typeof import("./mock-users").markReadSchema>) {
+  const doctor = CLINICIANS.find((d) => d.id === input.doctorId);
+  if (!doctor) throw new Error("Unknown sample doctor");
+  const { messageSchema } = await import("./mock-users");
+  return updateSample(input.patientId, (row) => ({ messages: z.array(messageSchema).parse(row.messages ?? []).map((m) => m.doctor === doctor.name && m.from !== input.viewer ? { ...m, read: true } : m) }));
 }
