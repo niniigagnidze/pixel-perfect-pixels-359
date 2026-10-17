@@ -1,4 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, queryOptions, useSuspenseQuery } from "@tanstack/react-query";
 import {
   Outlet,
   Link,
@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 
 import { Toaster } from "@/components/ui/sonner";
 import { DemoProvider } from "@/lib/demo-store";
+import { getMockDirectory } from "@/lib/mock-users.functions";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 
@@ -75,7 +76,15 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
   );
 }
 
+const directoryOptions = queryOptions({
+  queryKey: ["mock-user-directory"],
+  queryFn: () => getMockDirectory(),
+  staleTime: Infinity,
+  retry: 1,
+});
+
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+  loader: ({ context }) => context.queryClient.ensureQueryData(directoryOptions),
   head: () => ({
     meta: [
       { charSet: "utf-8" },
@@ -125,10 +134,17 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <DemoProvider>
-        <Outlet />
-        <Toaster />
-      </DemoProvider>
+      <SavedDemo />
     </QueryClientProvider>
+  );
+}
+
+function SavedDemo() {
+  const { data } = useSuspenseQuery(directoryOptions);
+  return (
+    <DemoProvider savedPatients={data.patients}>
+      <Outlet />
+      <Toaster />
+    </DemoProvider>
   );
 }
