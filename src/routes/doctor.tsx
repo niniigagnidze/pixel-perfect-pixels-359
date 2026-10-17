@@ -5,6 +5,8 @@ import { Shell } from "@/components/Shell";
 import { Input } from "@/components/ui/input";
 import { useDemo } from "@/lib/demo-store";
 import { DoctorSwitcher } from "@/components/DoctorSwitcher";
+import { careStatus, conversation } from "@/lib/hospitals";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/doctor")({
   head: () => ({
@@ -25,9 +27,9 @@ function DoctorPage() {
   const [tab, setTab] = useState<"pending" | "done">("pending");
   const [q, setQ] = useState("");
   const list = patients.filter(
-    (p) => p.status === tab && (p.ssn.includes(q.trim()) || p.name.toLowerCase().includes(q.trim().toLowerCase())),
+    (p) => careStatus(p, doctor.id).status === tab && (p.ssn.includes(q.trim()) || p.name.toLowerCase().includes(q.trim().toLowerCase())),
   );
-  const count = (s: "pending" | "done") => patients.filter((p) => p.status === s).length;
+  const count = (s: "pending" | "done") => patients.filter((p) => careStatus(p, doctor.id).status === s).length;
 
   return (
     <Shell side="doctor">
@@ -41,13 +43,13 @@ function DoctorPage() {
 
       <div className="mt-6 flex gap-2">
         {(["pending", "done"] as const).map((s) => (
-          <button
+          <Button
             key={s}
             onClick={() => setTab(s)}
             className={`rounded-lg px-4 py-2 font-medium ${tab === s ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"}`}
           >
             {s === "pending" ? "Pending" : "Done"} ({count(s)})
-          </button>
+          </Button>
         ))}
       </div>
 
@@ -56,7 +58,7 @@ function DoctorPage() {
         {list.map((p) => {
           const mine = findings.filter((f) => f.patientId === p.id && f.doctor === doctor.name);
           const toReview = mine.filter((f) => f.status === "pending").length;
-          const unread = (threads[p.id] ?? []).filter((m) => m.from === "patient" && !m.read).length;
+          const unread = conversation(threads[p.id] ?? [], doctor.name).filter((m) => m.from === "patient" && !m.read).length;
           return (
             <Link
               key={p.id}
@@ -70,7 +72,7 @@ function DoctorPage() {
               </div>
               <span className="text-sm text-muted-foreground">
                 {mine.length} analyses{toReview > 0 && <b className="ml-1 text-warning">· {toReview} to review</b>}
-                {p.completedAt && ` · done ${p.completedAt}`}
+                {careStatus(p, doctor.id).completedAt && ` · done ${careStatus(p, doctor.id).completedAt}`}
                 {unread > 0 && <b className="ml-2 rounded-full bg-primary px-2 py-0.5 text-primary-foreground">{unread} new message{unread > 1 ? "s" : ""}</b>}
               </span>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />

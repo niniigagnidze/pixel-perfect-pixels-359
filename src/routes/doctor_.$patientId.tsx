@@ -7,7 +7,7 @@ import { FindingCard } from "@/components/FindingCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDemo } from "@/lib/demo-store";
-import { hospitalOf } from "@/lib/hospitals";
+import { careStatus, hospitalOf, type DoctorId } from "@/lib/hospitals";
 import { DoctorSwitcher } from "@/components/DoctorSwitcher";
 import { Building2 } from "lucide-react";
 import { GeminiAssistant } from "@/components/GeminiAssistant";
@@ -46,7 +46,7 @@ function PatientFile() {
   const elsewhere = findings.filter((f) => f.patientId === p.id && f.doctor !== doctor.name && f.status === "approved");
   const pending = mine.filter((f) => f.status === "pending");
   const reviewed = mine.filter((f) => f.status !== "pending");
-  const done = p.status === "done";
+  const done = careStatus(p, doctor.id).status === "done";
 
   return (
     <Shell side="doctor">
@@ -93,7 +93,8 @@ function PatientFile() {
           )}
           <section id="chat" className="pt-4">
             <h2 className="mb-3 text-2xl">Messages with {p.name}</h2>
-            <ChatThread key={p.id} patientId={p.id} viewer="doctor" otherName={p.name} />
+            <p className="mb-3 text-sm text-muted-foreground">{doctor.name} · {doctor.hospital}</p>
+            <ChatThread key={`${p.id}:${doctor.id}`} patientId={p.id} viewer="doctor" otherName={p.name} doctorId={doctor.id as DoctorId} />
           </section>
         </div>
 
@@ -122,7 +123,7 @@ function PatientFile() {
               {p.diagnoses.map((d, i) => (
                 <li key={i} className="flex items-start justify-between gap-2 rounded-lg bg-muted p-3">
                   <div className="min-w-0"><b>{d.name}</b>{d.note && <p className="text-sm">{d.note}</p>}<p className="text-xs text-muted-foreground">{d.by} · {hospitalOf(d.by, d.hospital)} · {d.date}</p></div>
-                  <Button variant="ghost" size="icon" aria-label={`Remove diagnosis ${d.name}`} onClick={() => { if (confirm(`Remove diagnosis "${d.name}"?`)) { removeDiagnosis(p.id, i); toast("Diagnosis removed"); } }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                  {d.by === doctor.name && <Button variant="ghost" size="icon" aria-label={`Remove diagnosis ${d.name}`} onClick={() => { if (confirm(`Remove diagnosis "${d.name}"?`)) { removeDiagnosis(p.id, i); toast("Diagnosis removed"); } }}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
                 </li>
               ))}
             </ul>
@@ -148,7 +149,7 @@ function PatientFile() {
               {p.prescriptions.map((r, i) => (
                 <li key={i} className="flex items-start justify-between gap-2 rounded-lg bg-muted p-3">
                   <div className="min-w-0"><b>{r.name}</b><p className="text-sm">{r.dose}</p><p className="text-xs text-muted-foreground">{r.by} · {hospitalOf(r.by, r.hospital)} · {r.date}</p></div>
-                  <Button variant="ghost" size="icon" aria-label={`Remove prescription ${r.name}`} onClick={() => { if (confirm(`Remove prescription "${r.name}"?`)) { removePrescription(p.id, i); toast("Prescription removed"); } }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                  {r.by === doctor.name && <Button variant="ghost" size="icon" aria-label={`Remove prescription ${r.name}`} onClick={() => { if (confirm(`Remove prescription "${r.name}"?`)) { removePrescription(p.id, i); toast("Prescription removed"); } }}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
                 </li>
               ))}
             </ul>
