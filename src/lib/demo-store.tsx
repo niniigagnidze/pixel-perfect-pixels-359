@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { getMockThreads, saveMockPatientRecord, sendMockMessage } from "./mock-users.functions";
+import { getMockThreads, markMockRead, saveMockPatientRecord, sendMockMessage } from "./mock-users.functions";
 import type { SavePatientInput } from "./mock-users";
 
 export const CURRENT_DOCTOR = "Dr. Giorgi Kapanadze";
@@ -241,9 +241,12 @@ export function DemoProvider({ children, savedPatients = initialPatients }: { ch
       let changed = false;
       const next = { ...cur };
       for (const [pid, list] of Object.entries(incoming)) {
+        const server = new Map(list.map((m) => [m.id, m]));
         const have = new Set((cur[pid] ?? []).map((m) => m.id));
         const extra = list.filter((m) => !have.has(m.id));
-        if (extra.length) { changed = true; next[pid] = [...(cur[pid] ?? []), ...extra]; }
+        const updated = (cur[pid] ?? []).map((m) => (server.get(m.id)?.read && !m.read ? { ...m, read: true } : m));
+        const readChanged = updated.some((m, i) => m !== (cur[pid] ?? [])[i]);
+        if (extra.length || readChanged) { changed = true; next[pid] = [...updated, ...extra]; }
       }
       return changed ? next : cur;
     });
@@ -263,12 +266,11 @@ export function DemoProvider({ children, savedPatients = initialPatients }: { ch
       });
     attempt(0);
   };
-  const markRead: Ctx["markRead"] = (pid, viewer) =>
-    setThreads((t) => {
-      const list = t[pid] ?? [];
-      if (!list.some((m) => m.from !== viewer && !m.read)) return t;
-      return { ...t, [pid]: list.map((m) => (m.from !== viewer ? { ...m, read: true } : m)) };
-    });
+  const markRead: Ctx["markRead"] = (pid, viewer) => {
+    if (!(threads[pid] ?? []).some((m) => m.from !== viewer && !m.read)) return;
+    setThreads((t) => ({ ...t, [pid]: (t[pid] ?? []).map((m) => (m.from !== viewer ? { ...m, read: true } : m)) }));
+    markMockRead({ data: { patientId: pid as SavePatientInput["patientId"], viewer } }).catch(() => {});
+  };
   const [patients, setPatients] = useState(savedPatients);
   const dirty = useRef(new Set<string>());
   const touch = (pid: string) => dirty.current.add(pid);

@@ -78,3 +78,13 @@ export async function appendMockMessage(input: import("./mock-users").SendMessag
   if (upErr) throw new Error("Could not send the message. Please try again.");
   return { ok: true };
 }
+
+export async function markMockThreadRead(input: { patientId: string; viewer: "patient" | "doctor" }) {
+  const db = await admin();
+  const { data, error } = await db.from("mock_patients").select("messages").eq("id", input.patientId).eq("is_mock", true).single();
+  if (error) return { ok: false };
+  const list = (Array.isArray(data.messages) ? data.messages : []) as { from: string; read?: boolean }[];
+  if (!list.some((m) => m.from !== input.viewer && !m.read)) return { ok: true };
+  await db.from("mock_patients").update({ messages: list.map((m) => (m.from !== input.viewer ? { ...m, read: true } : m)) }).eq("id", input.patientId).eq("is_mock", true);
+  return { ok: true };
+}

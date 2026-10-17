@@ -20,7 +20,7 @@ export const Route = createFileRoute("/doctor")({
 });
 
 function DoctorPage() {
-  const { patients, findings } = useDemo();
+  const { patients, findings, threads } = useDemo();
   const [tab, setTab] = useState<"pending" | "done">("pending");
   const [q, setQ] = useState("");
   const list = patients.filter(
@@ -55,6 +55,7 @@ function DoctorPage() {
         {list.map((p) => {
           const mine = findings.filter((f) => f.patientId === p.id && f.doctor === CURRENT_DOCTOR);
           const toReview = mine.filter((f) => f.status === "pending").length;
+          const unread = (threads[p.id] ?? []).filter((m) => m.from === "patient" && !m.read).length;
           return (
             <Link
               key={p.id}
@@ -69,6 +70,7 @@ function DoctorPage() {
               <span className="text-sm text-muted-foreground">
                 {mine.length} analyses{toReview > 0 && <b className="ml-1 text-warning">· {toReview} to review</b>}
                 {p.completedAt && ` · done ${p.completedAt}`}
+                {unread > 0 && <b className="ml-2 rounded-full bg-primary px-2 py-0.5 text-primary-foreground">{unread} new message{unread > 1 ? "s" : ""}</b>}
               </span>
               <ChevronRight className="h-5 w-5 text-muted-foreground" />
             </Link>
