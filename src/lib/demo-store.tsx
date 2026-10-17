@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { saveMockPatientRecord } from "./mock-users.functions";
 
 export const CURRENT_DOCTOR = "Dr. Giorgi Kapanadze";
 
@@ -162,6 +163,8 @@ export interface DoctorPatient {
   diagnoses: Diagnosis[];
   prescriptions: Prescription[];
   completedAt?: string | undefined;
+  findingReviews?: Record<string, Partial<Pick<Finding, "status" | "doctorNote" | "plan" | "reviewedAt" | "aiSuggestion">>> | undefined;
+  messages?: Message[] | undefined;
 }
 
 export const initialPatients: DoctorPatient[] = [
@@ -216,20 +219,43 @@ function now() {
 }
 
 export function DemoProvider({ children, savedPatients = initialPatients }: { children: ReactNode; savedPatients?: DoctorPatient[] }) {
-  const [findings, setFindings] = useState(initialFindings);
-  const [messages, setMessages] = useState(initialMessages);
+  const [findings, setFindings] = useState<Finding[]>(() =>
+    initialFindings.map((f) => ({ ...f, ...(savedPatients.find((p) => p.id === f.patientId)?.findingReviews?.[f.id] ?? {}) }) as Finding),
+  );
+  const [messages, setMessages] = useState<Message[]>(() => savedPatients.find((p) => p.id === "p1")?.messages ?? initialMessages);
   const [patients, setPatients] = useState(savedPatients);
+  const dirty = useRef(new Set<string>());
+  const touch = (pid: string) => dirty.current.add(pid);
+  useEffect(() => {
+    const ids = [...dirty.current];
+    dirty.current.clear();
+    for (const pid of ids) {
+      const p = patients.find((x) => x.id === pid);
+      if (!p) continue;
+      const findingReviews = Object.fromEntries(
+        findings.filter((f) => f.patientId === pid && f.status !== "pending").map((f) => [f.id, { status: f.status, doctorNote: f.doctorNote, plan: f.plan, reviewedAt: f.reviewedAt, aiSuggestion: f.aiSuggestion }]),
+      );
+      saveMockPatientRecord({ data: {
+        patientId: pid as "p1", status: p.status, completedAt: p.completedAt ?? null,
+        diagnoses: p.diagnoses, prescriptions: p.prescriptions, findingReviews,
+        messages: pid === "p1" ? messages : null,
+      } }).catch(() => import("sonner").then(({ toast }) => toast.error("Could not save the change. Please try again.")));
+    }
+  }, [patients, findings, messages]);
   const pname = (pid: string) => patients.find((p) => p.id === pid)?.name ?? "patient";
   const today = () => new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
   const addDiagnosis: Ctx["addDiagnosis"] = (pid, name, note) => {
+    touch(pid);
     setPatients((ps) => ps.map((p) => (p.id === pid ? { ...p, diagnoses: [{ name, note, date: today(), by: CURRENT_DOCTOR }, ...p.diagnoses] } : p)));
     setAudit((a) => [{ who: CURRENT_DOCTOR, what: `Diagnosed ${pname(pid)}: ${name}`, when: now() }, ...a]);
   };
   const addPrescription: Ctx["addPrescription"] = (pid, name, dose) => {
+    touch(pid);
     setPatients((ps) => ps.map((p) => (p.id === pid ? { ...p, prescriptions: [{ name, dose, date: today(), by: CURRENT_DOCTOR }, ...p.prescriptions] } : p)));
     setAudit((a) => [{ who: CURRENT_DOCTOR, what: `Prescribed ${name} to ${pname(pid)}`, when: now() }, ...a]);
   };
   const setPatientStatus: Ctx["setPatientStatus"] = (pid, status) => {
+    touch(pid);
     setPatients((ps) => ps.map((p) => (p.id === pid ? { ...p, status, completedAt: status === "done" ? now() : undefined } : p)));
     setAudit((a) => [{ who: CURRENT_DOCTOR, what: `${status === "done" ? "Marked done" : "Reopened"}: ${pname(pid)}`, when: now() }, ...a]);
   };
@@ -245,6 +271,7 @@ export function DemoProvider({ children, savedPatients = initialPatients }: { ch
 
   const review: Ctx["review"] = (id, status, note, plan, editedText) => {
     const f = findings.find((x) => x.id === id);
+    if (f) touch(f.patientId);
     setFindings((fs) =>
       fs.map((x) =>
         x.id === id ? { ...x, status, doctorNote: note, plan, reviewedAt: now(), aiSuggestion: editedText ?? x.aiSuggestion } : x,
@@ -260,7 +287,7 @@ export function DemoProvider({ children, savedPatients = initialPatients }: { ch
     }
   };
 
-  const send: Ctx["send"] = (m) => setMessages((ms) => [...ms, { ...m, id: crypto.randomUUID(), time: now() }]);
+  const send: Ctx["send"] = (m) => { touch("p1"); setMessages((ms) => [...ms, { ...m, id: crypto.randomUUID(), time: now() }]);
 
   const toggleShare = (person: string, cat: string) => {
     setSharing((s) => ({ ...s, [person]: { ...s[person], [cat]: !s[person]?.[cat] } }));
