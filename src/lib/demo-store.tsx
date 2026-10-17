@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { saveMockPatientRecord } from "./mock-users.functions";
+import type { SavePatientInput } from "./mock-users";
 
 export const CURRENT_DOCTOR = "Dr. Giorgi Kapanadze";
 
@@ -232,6 +233,33 @@ export function DemoProvider({ children, savedPatients = initialPatients }: { ch
   const [patients, setPatients] = useState(savedPatients);
   const dirty = useRef(new Set<string>());
   const touch = (pid: string) => dirty.current.add(pid);
+  // Per-patient save queue: one request in flight, newest snapshot wins, failed saves retry.
+  const queue = useRef(new Map<string, { inFlight: boolean; next: SavePatientInput | null; attempts: number }>());
+  const flush = (pid: string) => {
+    const q = queue.current.get(pid);
+    if (!q || q.inFlight || !q.next) return;
+    const snapshot = q.next;
+    q.next = null;
+    q.inFlight = true;
+    saveMockPatientRecord({ data: snapshot })
+      .then(() => { q.attempts = 0; })
+      .catch(() => {
+        if (!q.next) q.next = snapshot;
+        q.attempts += 1;
+        if (q.attempts === 1) import("sonner").then(({ toast }) => toast.error("Couldn't save — retrying…"));
+      })
+      .finally(() => {
+        q.inFlight = false;
+        if (q.next) setTimeout(() => flush(pid), q.attempts ? Math.min(1000 * 2 ** q.attempts, 15000) : 0);
+      });
+  };
+  useEffect(() => {
+    const warn = (e: BeforeUnloadEvent) => {
+      if ([...queue.current.values()].some((q) => q.inFlight || q.next)) e.preventDefault();
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, []);
   useEffect(() => {
     const ids = [...dirty.current];
     dirty.current.clear();
@@ -241,11 +269,14 @@ export function DemoProvider({ children, savedPatients = initialPatients }: { ch
       const findingReviews = Object.fromEntries(
         findings.filter((f) => f.patientId === pid && f.status !== "pending").map((f) => [f.id, { status: f.status, doctorNote: f.doctorNote, plan: f.plan, reviewedAt: f.reviewedAt, aiSuggestion: f.aiSuggestion }]),
       );
-      saveMockPatientRecord({ data: {
-        patientId: pid as "p1", status: p.status, completedAt: p.completedAt ?? null,
+      const q = queue.current.get(pid) ?? { inFlight: false, next: null, attempts: 0 };
+      queue.current.set(pid, q);
+      q.next = {
+        patientId: pid as SavePatientInput["patientId"], status: p.status, completedAt: p.completedAt ?? null,
         diagnoses: p.diagnoses, prescriptions: p.prescriptions, findingReviews,
         messages: pid === "p1" ? messages : null,
-      } }).catch(() => import("sonner").then(({ toast }) => toast.error("Could not save the change. Please try again.")));
+      };
+      flush(pid);
     }
   }, [patients, findings, messages]);
   const pname = (pid: string) => patients.find((p) => p.id === pid)?.name ?? "patient";
