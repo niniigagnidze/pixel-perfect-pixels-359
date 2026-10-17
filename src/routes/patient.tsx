@@ -26,7 +26,8 @@ function Card({ title, icon, children }: { title: string; icon: React.ReactNode;
 }
 
 function PatientPage() {
-  const { findings } = useDemo();
+  const { findings: all } = useDemo();
+  const findings = all.filter((f) => f.patientId === "p1");
   const approved = findings.filter((f) => f.status === "approved");
   const pending = findings.filter((f) => f.status === "pending");
 

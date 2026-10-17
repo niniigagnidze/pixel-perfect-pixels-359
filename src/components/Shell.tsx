@@ -8,7 +8,7 @@ const patientLinks = [
   { to: "/family", label: "Family & sharing" },
 ] as const;
 const doctorLinks = [
-  { to: "/doctor", label: "Review queue" },
+  { to: "/doctor", label: "My patients" },
   { to: "/audit", label: "Audit log" },
 ] as const;
 
