@@ -14,7 +14,110 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      mock_patients: {
+        Row: {
+          allergies: Json
+          assigned_doctor_id: string
+          blood_type: string
+          completed_at: string | null
+          diagnoses: Json
+          dob: string
+          id: string
+          is_mock: boolean
+          prescriptions: Json
+          sample_ssn: string
+          status: string
+        }
+        Insert: {
+          allergies?: Json
+          assigned_doctor_id: string
+          blood_type: string
+          completed_at?: string | null
+          diagnoses?: Json
+          dob: string
+          id: string
+          is_mock?: boolean
+          prescriptions?: Json
+          sample_ssn: string
+          status?: string
+        }
+        Update: {
+          allergies?: Json
+          assigned_doctor_id?: string
+          blood_type?: string
+          completed_at?: string | null
+          diagnoses?: Json
+          dob?: string
+          id?: string
+          is_mock?: boolean
+          prescriptions?: Json
+          sample_ssn?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mock_patients_assigned_doctor_id_fkey"
+            columns: ["assigned_doctor_id"]
+            isOneToOne: false
+            referencedRelation: "mock_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mock_patients_id_fkey"
+            columns: ["id"]
+            isOneToOne: true
+            referencedRelation: "mock_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mock_personas: {
+        Row: {
+          is_mock: boolean
+          persona: string
+          user_id: string
+        }
+        Insert: {
+          is_mock?: boolean
+          persona: string
+          user_id: string
+        }
+        Update: {
+          is_mock?: boolean
+          persona?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mock_personas_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "mock_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mock_users: {
+        Row: {
+          display_name: string
+          email: string
+          id: string
+          is_mock: boolean
+        }
+        Insert: {
+          display_name: string
+          email: string
+          id: string
+          is_mock?: boolean
+        }
+        Update: {
+          display_name?: string
+          email?: string
+          id?: string
+          is_mock?: boolean
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
