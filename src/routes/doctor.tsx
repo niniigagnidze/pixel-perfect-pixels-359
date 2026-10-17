@@ -3,7 +3,8 @@ import { useState } from "react";
 import { Search, ChevronRight } from "lucide-react";
 import { Shell } from "@/components/Shell";
 import { Input } from "@/components/ui/input";
-import { useDemo, CURRENT_DOCTOR } from "@/lib/demo-store";
+import { useDemo } from "@/lib/demo-store";
+import { DoctorSwitcher } from "@/components/DoctorSwitcher";
 
 export const Route = createFileRoute("/doctor")({
   head: () => ({
@@ -31,7 +32,7 @@ function DoctorPage() {
   return (
     <Shell side="doctor">
       <h1 className="text-4xl">My patients</h1>
-      <p className="mt-1 text-muted-foreground">{CURRENT_DOCTOR} · Search by personal number (SSN) or name.</p>
+      <p className="mt-1 text-muted-foreground">{doctor.name} · {doctor.hospital} · Search by personal number (SSN) or name.</p>
 
       <div className="relative mt-6 max-w-md">
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -53,7 +54,7 @@ function DoctorPage() {
       <div className="mt-4 divide-y rounded-2xl border bg-card shadow-sm">
         {list.length === 0 && <p className="p-6 text-center text-muted-foreground">No patients here.</p>}
         {list.map((p) => {
-          const mine = findings.filter((f) => f.patientId === p.id && f.doctor === CURRENT_DOCTOR);
+          const mine = findings.filter((f) => f.patientId === p.id && f.doctor === doctor.name);
           const toReview = mine.filter((f) => f.status === "pending").length;
           const unread = (threads[p.id] ?? []).filter((m) => m.from === "patient" && !m.read).length;
           return (

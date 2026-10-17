@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { getMockThreads, markMockRead, saveMockPatientRecord, sendMockMessage } from "./mock-users.functions";
 import type { SavePatientInput } from "./mock-users";
-import { CLINICIANS, hospitalOf, type Clinician } from "./hospitals";
+import { CLINICIANS, type Clinician } from "./hospitals";
 
 export const CURRENT_DOCTOR = "Dr. Giorgi Kapanadze";
 
@@ -411,7 +411,7 @@ export function DemoProvider({ children, savedPatients = initialPatients }: { ch
   const setTwoStep = (v: boolean) => { setTwo(v); log(`${v ? "Enabled" : "Disabled"} 2-step verification`); };
   const canSee = (person: string, cat: string) => !confidential && !privateCats[cat] && !!sharing[person]?.[cat];
 
-  return <DemoCtx.Provider value={{ confidential, setConfidential, privateCats, togglePrivate, twoStep, setTwoStep, canSee, findings, patients, addDiagnosis, addPrescription, setPatientStatus, removeDiagnosis, removePrescription, undoReview, messages, threads, sendMessage, markRead, audit, sharing, review, send, toggleShare }}>{children}</DemoCtx.Provider>;
+  return <DemoCtx.Provider value={{ doctor, setDoctorId, confidential, setConfidential, privateCats, togglePrivate, twoStep, setTwoStep, canSee, findings, patients, addDiagnosis, addPrescription, setPatientStatus, removeDiagnosis, removePrescription, undoReview, messages, threads, sendMessage, markRead, audit, sharing, review, send, toggleShare }}>{children}</DemoCtx.Provider>;
 }
 
 export function useDemo() {
