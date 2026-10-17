@@ -29,8 +29,8 @@ export interface Message {
   doctor: string;
   text: string;
   time: string;
-  urgent?: boolean;
-  read?: boolean;
+  urgent?: boolean | undefined;
+  read?: boolean | undefined;
 }
 
 export interface AuditEntry {
