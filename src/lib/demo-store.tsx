@@ -215,10 +215,10 @@ function now() {
   return new Date().toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
 }
 
-export function DemoProvider({ children }: { children: ReactNode }) {
+export function DemoProvider({ children, savedPatients = initialPatients }: { children: ReactNode; savedPatients?: DoctorPatient[] }) {
   const [findings, setFindings] = useState(initialFindings);
   const [messages, setMessages] = useState(initialMessages);
-  const [patients, setPatients] = useState(initialPatients);
+  const [patients, setPatients] = useState(savedPatients);
   const pname = (pid: string) => patients.find((p) => p.id === pid)?.name ?? "patient";
   const today = () => new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
   const addDiagnosis: Ctx["addDiagnosis"] = (pid, name, note) => {
