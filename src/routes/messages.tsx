@@ -14,6 +14,8 @@ export const Route = createFileRoute("/messages")({
       { name: "description", content: "Secure messages with your doctors." },
       { property: "og:title", content: "Messages — Curely" },
       { property: "og:description", content: "Secure messages with your doctors." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: Messages,

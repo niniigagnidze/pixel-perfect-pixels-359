@@ -9,6 +9,8 @@ export const Route = createFileRoute("/audit")({
       { name: "description", content: "Every view, edit and AI action, recorded." },
       { property: "og:title", content: "Audit log — Curely Doctor Portal" },
       { property: "og:description", content: "Every view, edit and AI action, recorded." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: Audit,

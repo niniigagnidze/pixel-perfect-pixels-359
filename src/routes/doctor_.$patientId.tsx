@@ -7,6 +7,7 @@ import { FindingCard } from "@/components/FindingCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDemo, CURRENT_DOCTOR } from "@/lib/demo-store";
+import { GeminiAssistant } from "@/components/GeminiAssistant";
 
 export const Route = createFileRoute("/doctor_/$patientId")({
   head: () => ({
@@ -78,6 +79,10 @@ function PatientFile() {
         </div>
 
         <aside className="space-y-6">
+          <section className="border-b pb-5">
+            <h2 className="text-xl">Clinical AI review</h2>
+            <GeminiAssistant key={p.id} request={{ kind: "care", patientId: p.id as "p1" | "p2" | "p3" | "p4" }} label="Generate care review" />
+          </section>
           <section className="rounded-2xl border bg-card p-5 shadow-sm">
             <h2 className="flex items-center gap-2 text-xl"><Stethoscope className="h-5 w-5 text-primary" /> Diagnoses</h2>
             <form

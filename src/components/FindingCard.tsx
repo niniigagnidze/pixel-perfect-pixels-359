@@ -4,12 +4,14 @@ import { AlertTriangle, Bot, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useDemo, type Finding, type Plan } from "@/lib/demo-store";
+import { GeminiAssistant } from "@/components/GeminiAssistant";
 
 const plans: Plan[] = ["No visit needed", "Book follow-up visit", "Order more tests"];
 
 export function FindingCard({ f }: { f: Finding }) {
   const { review } = useDemo();
   const [text, setText] = useState(f.aiSuggestion);
+  const [generated, setGenerated] = useState(false);
   const [note, setNote] = useState("");
   const [plan, setPlan] = useState<Plan>("Book follow-up visit");
   const done = f.status !== "pending";
@@ -28,8 +30,9 @@ export function FindingCard({ f }: { f: Finding }) {
       </div>
 
       <div className="mt-4 rounded-xl bg-ai-soft p-4">
-        <p className="flex items-center gap-2 text-sm font-semibold text-ai"><Bot className="h-4 w-4" /> AI assistant suggestion · {Math.round(f.confidence * 100)}% confidence</p>
+        <p className="flex items-center gap-2 text-sm font-semibold text-ai"><Bot className="h-4 w-4" /> {generated ? "Gemini draft · requires clinician review" : "Sample AI assistant suggestion"}</p>
         {done ? <p className="mt-2">{f.aiSuggestion}</p> : <Textarea className="mt-2 bg-card" value={text} onChange={(e) => setText(e.target.value)} rows={3} />}
+        {!done && <GeminiAssistant request={{ kind: "analysis", patientId: f.patientId as "p1" | "p2" | "p3" | "p4", findingId: f.id }} label="Generate Gemini draft" onGenerated={(draft) => { setText(draft); setGenerated(true); }} />}
       </div>
 
       {f.flags.map((fl) => (

@@ -8,6 +8,8 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "Curely connects patients, family doctors, specialists and hospitals with real-time records and doctor-approved AI." },
       { property: "og:title", content: "Curely — Your health, connected" },
       { property: "og:description", content: "Patients, doctors and hospitals in one secure place." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: Home,
