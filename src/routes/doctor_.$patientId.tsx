@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useDemo, CURRENT_DOCTOR } from "@/lib/demo-store";
 import { GeminiAssistant } from "@/components/GeminiAssistant";
+import { ChatThread } from "@/components/ChatThread";
 
 export const Route = createFileRoute("/doctor_/$patientId")({
   head: () => ({
@@ -76,6 +77,10 @@ function PatientFile() {
           {mine.length === 0 && <p className="rounded-xl bg-muted p-6 text-center">No analyses assigned to you.</p>}
           {pending.map((f) => <FindingCard key={f.id} f={f} />)}
           {reviewed.map((f) => <FindingCard key={f.id} f={f} />)}
+          <section id="chat" className="pt-4">
+            <h2 className="mb-3 text-2xl">Messages with {p.name}</h2>
+            <ChatThread key={p.id} patientId={p.id} viewer="doctor" otherName={p.name} />
+          </section>
         </div>
 
         <aside className="space-y-6">
