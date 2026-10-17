@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import { getMockThreads, markMockRead, saveMockPatientRecord, sendMockMessage } from "./mock-users.functions";
 import type { SavePatientInput } from "./mock-users";
+import { CLINICIANS, hospitalOf, type Clinician } from "./hospitals";
 
 export const CURRENT_DOCTOR = "Dr. Giorgi Kapanadze";
 
@@ -13,6 +14,7 @@ export interface Finding {
   specialty: string;
   doctor: string;
   source: string;
+  hospital: string;
   date: string;
   study: string;
   aiSuggestion: string;
@@ -91,6 +93,7 @@ export const initialFindings: Finding[] = [
     patientId: "p1",
     specialty: "Orthopedics · Spine",
     doctor: "Dr. Nika Tsiklauri",
+    hospital: "Tbilisi Central Hospital",
     source: "Tbilisi Central Hospital · Radiology",
     date: "15 Oct 2026",
     study: "Spine X-ray (PA + lateral)",
@@ -105,7 +108,8 @@ export const initialFindings: Finding[] = [
     patientId: "p1",
     specialty: "Cardiology",
     doctor: "Dr. Mariam Lomidze",
-    source: "Curely Partner Lab",
+    hospital: "Batumi Heart Center",
+    source: "Batumi Heart Center · Cardiology lab",
     date: "16 Oct 2026",
     study: "12-lead ECG",
     aiSuggestion: "Normal sinus rhythm, 72 bpm. No ST changes. QTc 421 ms (normal).",
@@ -118,6 +122,7 @@ export const initialFindings: Finding[] = [
     patientId: "p1",
     specialty: "Family medicine",
     doctor: "Dr. Giorgi Kapanadze",
+    hospital: "Vake Family Clinic",
     source: "Curely Partner Lab",
     date: "14 Oct 2026",
     study: "Lipid panel",
@@ -130,29 +135,29 @@ export const initialFindings: Finding[] = [
     reviewedAt: "14 Oct 2026, 16:20",
   },
   {
-    id: "f4", patientId: "p2", specialty: "Family medicine", doctor: CURRENT_DOCTOR, source: "Curely Partner Lab", date: "16 Oct 2026",
+    id: "f4", patientId: "p2", specialty: "Family medicine", doctor: CURRENT_DOCTOR, hospital: "Vake Family Clinic", source: "Curely Partner Lab", date: "16 Oct 2026",
     study: "Complete blood count", aiSuggestion: "Hemoglobin 10.9 g/dL (low), MCV 76 fL (low). Pattern suggests iron-deficiency anemia.",
     confidence: 0.87, flags: ["Hemoglobin below normal range"], status: "pending",
   },
   {
-    id: "f5", patientId: "p2", specialty: "Family medicine", doctor: CURRENT_DOCTOR, source: "Curely Partner Lab", date: "16 Oct 2026",
+    id: "f5", patientId: "p2", specialty: "Family medicine", doctor: CURRENT_DOCTOR, hospital: "Vake Family Clinic", source: "Curely Partner Lab", date: "16 Oct 2026",
     study: "Ferritin", aiSuggestion: "Ferritin 8 ng/mL (low). Consistent with depleted iron stores.",
     confidence: 0.93, flags: [], status: "pending",
   },
   {
-    id: "f6", patientId: "p3", specialty: "Family medicine", doctor: CURRENT_DOCTOR, source: "Tbilisi Central Hospital", date: "15 Oct 2026",
+    id: "f6", patientId: "p3", specialty: "Family medicine", doctor: CURRENT_DOCTOR, hospital: "Vake Family Clinic", source: "Tbilisi Central Hospital", date: "15 Oct 2026",
     study: "Fasting glucose & HbA1c", aiSuggestion: "Fasting glucose 7.4 mmol/L, HbA1c 6.9 %. Meets criteria for type 2 diabetes.",
     confidence: 0.9, flags: ["Patient reports sulfa allergy"], status: "pending",
   },
   {
-    id: "f7", patientId: "p4", specialty: "Family medicine", doctor: CURRENT_DOCTOR, source: "Curely Partner Lab", date: "10 Oct 2026",
+    id: "f7", patientId: "p4", specialty: "Family medicine", doctor: CURRENT_DOCTOR, hospital: "Vake Family Clinic", source: "Curely Partner Lab", date: "10 Oct 2026",
     study: "Thyroid panel (TSH)", aiSuggestion: "TSH 2.1 mIU/L, within normal range.",
     confidence: 0.96, flags: [], status: "approved", doctorNote: "Thyroid normal.", plan: "No visit needed", reviewedAt: "11 Oct 2026, 10:05",
   },
 ];
 
-export interface Diagnosis { name: string; note: string; date: string; by: string }
-export interface Prescription { name: string; dose: string; date: string; by: string }
+export interface Diagnosis { name: string; note: string; date: string; by: string; hospital?: string | undefined }
+export interface Prescription { name: string; dose: string; date: string; by: string; hospital?: string | undefined }
 export interface DoctorPatient {
   id: string;
   name: string;
@@ -193,6 +198,8 @@ export const familyMembers = [
 export const shareCategories = ["Allergies", "Medications", "Conditions", "Lab results", "Imaging", "Family history"];
 
 interface Ctx {
+  doctor: Clinician;
+  setDoctorId: (id: string) => void;
   findings: Finding[];
   patients: DoctorPatient[];
   addDiagnosis: (pid: string, name: string, note: string) => void;
@@ -271,6 +278,10 @@ export function DemoProvider({ children, savedPatients = initialPatients }: { ch
     setThreads((t) => ({ ...t, [pid]: (t[pid] ?? []).map((m) => (m.from !== viewer ? { ...m, read: true } : m)) }));
     markMockRead({ data: { patientId: pid as SavePatientInput["patientId"], viewer } }).catch(() => {});
   };
+  const [doctorId, setDoctorIdState] = useState("d1");
+  useEffect(() => { const v = localStorage.getItem("curely-doctor"); if (v && CLINICIANS.some((c) => c.id === v)) setDoctorIdState(v); }, []);
+  const setDoctorId = (id: string) => { setDoctorIdState(id); localStorage.setItem("curely-doctor", id); };
+  const doctor = CLINICIANS.find((c) => c.id === doctorId) ?? CLINICIANS[0]!;
   const [patients, setPatients] = useState(savedPatients);
   const dirty = useRef(new Set<string>());
   const touch = (pid: string) => dirty.current.add(pid);
@@ -323,32 +334,32 @@ export function DemoProvider({ children, savedPatients = initialPatients }: { ch
   const today = () => new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
   const addDiagnosis: Ctx["addDiagnosis"] = (pid, name, note) => {
     touch(pid);
-    setPatients((ps) => ps.map((p) => (p.id === pid ? { ...p, diagnoses: [{ name, note, date: today(), by: CURRENT_DOCTOR }, ...p.diagnoses] } : p)));
-    setAudit((a) => [{ who: CURRENT_DOCTOR, what: `Diagnosed ${pname(pid)}: ${name}`, when: now() }, ...a]);
+    setPatients((ps) => ps.map((p) => (p.id === pid ? { ...p, diagnoses: [{ name, note, date: today(), by: doctor.name, hospital: doctor.hospital }, ...p.diagnoses] } : p)));
+    setAudit((a) => [{ who: `${doctor.name} (${doctor.hospital})`, what: `Diagnosed ${pname(pid)}: ${name}`, when: now() }, ...a]);
   };
   const addPrescription: Ctx["addPrescription"] = (pid, name, dose) => {
     touch(pid);
-    setPatients((ps) => ps.map((p) => (p.id === pid ? { ...p, prescriptions: [{ name, dose, date: today(), by: CURRENT_DOCTOR }, ...p.prescriptions] } : p)));
-    setAudit((a) => [{ who: CURRENT_DOCTOR, what: `Prescribed ${name} to ${pname(pid)}`, when: now() }, ...a]);
+    setPatients((ps) => ps.map((p) => (p.id === pid ? { ...p, prescriptions: [{ name, dose, date: today(), by: doctor.name, hospital: doctor.hospital }, ...p.prescriptions] } : p)));
+    setAudit((a) => [{ who: `${doctor.name} (${doctor.hospital})`, what: `Prescribed ${name} to ${pname(pid)}`, when: now() }, ...a]);
   };
   const setPatientStatus: Ctx["setPatientStatus"] = (pid, status) => {
     touch(pid);
     setPatients((ps) => ps.map((p) => (p.id === pid ? { ...p, status, completedAt: status === "done" ? now() : undefined } : p)));
-    setAudit((a) => [{ who: CURRENT_DOCTOR, what: `${status === "done" ? "Marked done" : "Reopened"}: ${pname(pid)}`, when: now() }, ...a]);
+    setAudit((a) => [{ who: `${doctor.name} (${doctor.hospital})`, what: `${status === "done" ? "Marked done" : "Reopened"}: ${pname(pid)}`, when: now() }, ...a]);
   };
   const removeDiagnosis: Ctx["removeDiagnosis"] = (pid, index) => {
     const d = patients.find((p) => p.id === pid)?.diagnoses[index];
     if (!d) return;
     touch(pid);
     setPatients((ps) => ps.map((p) => (p.id === pid ? { ...p, diagnoses: p.diagnoses.filter((_, i) => i !== index) } : p)));
-    setAudit((a) => [{ who: CURRENT_DOCTOR, what: `Removed diagnosis for ${pname(pid)}: ${d.name}`, when: now() }, ...a]);
+    setAudit((a) => [{ who: `${doctor.name} (${doctor.hospital})`, what: `Removed diagnosis for ${pname(pid)}: ${d.name}`, when: now() }, ...a]);
   };
   const removePrescription: Ctx["removePrescription"] = (pid, index) => {
     const r = patients.find((p) => p.id === pid)?.prescriptions[index];
     if (!r) return;
     touch(pid);
     setPatients((ps) => ps.map((p) => (p.id === pid ? { ...p, prescriptions: p.prescriptions.filter((_, i) => i !== index) } : p)));
-    setAudit((a) => [{ who: CURRENT_DOCTOR, what: `Removed prescription ${r.name} for ${pname(pid)}`, when: now() }, ...a]);
+    setAudit((a) => [{ who: `${doctor.name} (${doctor.hospital})`, what: `Removed prescription ${r.name} for ${pname(pid)}`, when: now() }, ...a]);
   };
   const undoReview: Ctx["undoReview"] = (id) => {
     const f = findings.find((x) => x.id === id);
