@@ -22,11 +22,13 @@ export type Database = {
           completed_at: string | null
           diagnoses: Json
           dob: string
+          doctor_statuses: Json
           finding_reviews: Json
           id: string
           is_mock: boolean
           messages: Json | null
           prescriptions: Json
+          revision: number
           sample_ssn: string
           status: string
         }
@@ -37,11 +39,13 @@ export type Database = {
           completed_at?: string | null
           diagnoses?: Json
           dob: string
+          doctor_statuses?: Json
           finding_reviews?: Json
           id: string
           is_mock?: boolean
           messages?: Json | null
           prescriptions?: Json
+          revision?: number
           sample_ssn: string
           status?: string
         }
@@ -52,11 +56,13 @@ export type Database = {
           completed_at?: string | null
           diagnoses?: Json
           dob?: string
+          doctor_statuses?: Json
           finding_reviews?: Json
           id?: string
           is_mock?: boolean
           messages?: Json | null
           prescriptions?: Json
+          revision?: number
           sample_ssn?: string
           status?: string
         }
