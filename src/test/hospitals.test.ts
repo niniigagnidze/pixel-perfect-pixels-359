@@ -1,7 +1,17 @@
 import { describe, expect, it } from "vitest";
-import { buildTimeline, hospitalOf } from "@/lib/hospitals";
+import { buildTimeline, careStatus, CLINICIANS, conversation, hospitalOf } from "@/lib/hospitals";
 
 describe("Multi-hospital record", () => {
+  it("keeps messages isolated for each of the three doctors", () => {
+    const messages = CLINICIANS.flatMap((d) => [{ doctor: d.name, from: "patient", text: d.id }, { doctor: d.name, from: "doctor", text: `reply-${d.id}` }]);
+    for (const d of CLINICIANS) expect(conversation(messages, d.name).map((m) => m.text)).toEqual([d.id, `reply-${d.id}`]);
+  });
+  it("completing care at one hospital does not complete another doctor's queue", () => {
+    const patient = { status: "done" as const, doctorStatuses: { d2: { status: "done" as const } } };
+    expect(careStatus(patient, "d1").status).toBe("done");
+    expect(careStatus(patient, "d2").status).toBe("done");
+    expect(careStatus(patient, "d3").status).toBe("pending");
+  });
   it("labels legacy entries with the author's hospital", () => {
     expect(hospitalOf("Dr. Nika Tsiklauri")).toBe("Tbilisi Central Hospital");
   });
