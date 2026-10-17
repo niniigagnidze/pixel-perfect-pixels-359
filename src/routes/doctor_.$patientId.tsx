@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, CheckCircle2, Pill, Stethoscope, RotateCcw } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Pill, Stethoscope, RotateCcw, Trash2 } from "lucide-react";
 import { Shell } from "@/components/Shell";
 import { FindingCard } from "@/components/FindingCard";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,7 @@ export const Route = createFileRoute("/doctor_/$patientId")({
 
 function PatientFile() {
   const { patientId } = Route.useParams();
-  const { patients, findings, addDiagnosis, addPrescription, setPatientStatus } = useDemo();
+  const { patients, findings, addDiagnosis, addPrescription, setPatientStatus, removeDiagnosis, removePrescription } = useDemo();
   const navigate = useNavigate();
   const p = patients.find((x) => x.id === patientId);
   const [dx, setDx] = useState({ name: "", note: "" });
@@ -101,7 +101,10 @@ function PatientFile() {
             </form>
             <ul className="mt-4 space-y-2">
               {p.diagnoses.map((d, i) => (
-                <li key={i} className="rounded-lg bg-muted p-3"><b>{d.name}</b>{d.note && <p className="text-sm">{d.note}</p>}<p className="text-xs text-muted-foreground">{d.by} · {d.date}</p></li>
+                <li key={i} className="flex items-start justify-between gap-2 rounded-lg bg-muted p-3">
+                  <div className="min-w-0"><b>{d.name}</b>{d.note && <p className="text-sm">{d.note}</p>}<p className="text-xs text-muted-foreground">{d.by} · {d.date}</p></div>
+                  <Button variant="ghost" size="icon" aria-label={`Remove diagnosis ${d.name}`} onClick={() => { if (confirm(`Remove diagnosis "${d.name}"?`)) { removeDiagnosis(p.id, i); toast("Diagnosis removed"); } }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                </li>
               ))}
             </ul>
           </section>
@@ -124,7 +127,10 @@ function PatientFile() {
             </form>
             <ul className="mt-4 space-y-2">
               {p.prescriptions.map((r, i) => (
-                <li key={i} className="rounded-lg bg-muted p-3"><b>{r.name}</b><p className="text-sm">{r.dose}</p><p className="text-xs text-muted-foreground">{r.by} · {r.date}</p></li>
+                <li key={i} className="flex items-start justify-between gap-2 rounded-lg bg-muted p-3">
+                  <div className="min-w-0"><b>{r.name}</b><p className="text-sm">{r.dose}</p><p className="text-xs text-muted-foreground">{r.by} · {r.date}</p></div>
+                  <Button variant="ghost" size="icon" aria-label={`Remove prescription ${r.name}`} onClick={() => { if (confirm(`Remove prescription "${r.name}"?`)) { removePrescription(p.id, i); toast("Prescription removed"); } }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                </li>
               ))}
             </ul>
           </section>
