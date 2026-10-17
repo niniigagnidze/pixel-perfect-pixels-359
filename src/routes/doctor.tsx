@@ -21,7 +21,7 @@ export const Route = createFileRoute("/doctor")({
 });
 
 function DoctorPage() {
-  const { patients, findings, threads } = useDemo();
+  const { patients, findings, threads, doctor } = useDemo();
   const [tab, setTab] = useState<"pending" | "done">("pending");
   const [q, setQ] = useState("");
   const list = patients.filter(
