@@ -15,4 +15,4 @@
 - Parse Gemini SSE centrally and require a successful STOP finish before applying drafts, so split frames, refusals, and truncated responses cannot become completed clinical suggestions.
 - Own the upstream Gemini response reader and handle cancellation both before and after headers; returning a raw fetch body lets normal disconnects escape the request handler.
 - Keep the mock directory in dedicated read-only public mock tables with fixed fixture IDs and invalid-domain emails; demo personas never confer authorization or create Auth accounts.
-- Load saved mock patients through a publishable-key server function and the root query loader into DemoProvider once; mutations remain session-only to avoid public writes before clinical authentication exists.
+- Load saved mock patients through a publishable-key server function and the root query loader into DemoProvider; persist demo mutations only via a strictly validated, size-capped server function scoped to the fixed sample patient IDs, and derive patient-portal views from the same shared patient state so doctor and patient sides stay in sync.
