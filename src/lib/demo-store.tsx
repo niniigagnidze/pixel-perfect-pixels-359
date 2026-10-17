@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { getMockThreads, markMockRead, saveMockPatientRecord, sendMockMessage } from "./mock-users.functions";
+import { getMockDirectory, markMockRead, saveMockPatientRecord, sendMockMessage } from "./mock-users.functions";
 import type { SavePatientInput } from "./mock-users";
-import { CLINICIANS, type Clinician } from "./hospitals";
+import { careStatus, CLINICIANS, type Clinician, type DoctorId, type CareStatus } from "./hospitals";
 
 export const CURRENT_DOCTOR = "Dr. Giorgi Kapanadze";
 
@@ -169,6 +169,7 @@ export interface DoctorPatient {
   diagnoses: Diagnosis[];
   prescriptions: Prescription[];
   completedAt?: string | undefined;
+  doctorStatuses?: Partial<Record<DoctorId, CareStatus>> | undefined;
   findingReviews?: Record<string, { status: FindingStatus; doctorNote?: string | undefined; plan?: Plan | undefined; reviewedAt?: string | undefined; aiSuggestion?: string | undefined }> | undefined;
   messages?: Message[] | undefined;
 }
@@ -211,7 +212,7 @@ interface Ctx {
   messages: Message[];
   threads: Record<string, Message[]>;
   sendMessage: (pid: string, m: Omit<Message, "id" | "time">) => void;
-  markRead: (pid: string, viewer: "patient" | "doctor") => void;
+  markRead: (pid: string, viewer: "patient" | "doctor", doctorId: DoctorId) => void;
   audit: AuditEntry[];
   sharing: Record<string, Record<string, boolean>>;
   review: (id: string, status: FindingStatus, note: string, plan: Plan, editedText?: string) => void;
@@ -259,7 +260,19 @@ export function DemoProvider({ children, savedPatients = initialPatients }: { ch
     });
   useEffect(() => {
     let stop = false;
-    const tick = () => getMockThreads().then((t) => { if (!stop) mergeThreads(t); }).catch(() => {});
+    const tick = () => getMockDirectory().then(({ patients: incoming }) => {
+      if (stop) return;
+      mergeThreads(Object.fromEntries(incoming.map((p) => [p.id, p.messages ?? []])));
+      const available = incoming.filter((p) => !dirty.current.has(p.id) && ![...queue.current.entries()].some(([key, q]) => key.startsWith(`${p.id}:`) && (q.inFlight || q.next)));
+      setPatients((current) => current.map((p) => available.find((row) => row.id === p.id) ?? p));
+      setFindings((current) => current.map((f) => {
+        const p = available.find((row) => row.id === f.patientId);
+        if (!p) return f;
+        const base = initialFindings.find((row) => row.id === f.id);
+        const r = p.findingReviews?.[f.id];
+        return r ? { ...f, ...r, aiSuggestion: r.aiSuggestion ?? f.aiSuggestion } : { ...f, status: base?.status ?? "pending", doctorNote: base?.doctorNote, plan: base?.plan, reviewedAt: base?.reviewedAt };
+      }));
+    }).catch(() => {});
     const id = setInterval(tick, 4000);
     return () => { stop = true; clearInterval(id); };
   }, []);
@@ -273,15 +286,16 @@ export function DemoProvider({ children, savedPatients = initialPatients }: { ch
       });
     attempt(0);
   };
-  const markRead: Ctx["markRead"] = (pid, viewer) => {
-    if (!(threads[pid] ?? []).some((m) => m.from !== viewer && !m.read)) return;
-    setThreads((t) => ({ ...t, [pid]: (t[pid] ?? []).map((m) => (m.from !== viewer ? { ...m, read: true } : m)) }));
-    markMockRead({ data: { patientId: pid as SavePatientInput["patientId"], viewer } }).catch(() => {});
+  const markRead: Ctx["markRead"] = (pid, viewer, targetId) => {
+    const name = CLINICIANS.find((c) => c.id === targetId)?.name;
+    if (!(threads[pid] ?? []).some((m) => m.doctor === name && m.from !== viewer && !m.read)) return;
+    setThreads((t) => ({ ...t, [pid]: (t[pid] ?? []).map((m) => (m.doctor === name && m.from !== viewer ? { ...m, read: true } : m)) }));
+    markMockRead({ data: { patientId: pid as SavePatientInput["patientId"], viewer, doctorId: targetId } }).catch(() => {});
   };
   const [doctorId, setDoctorIdState] = useState("d1");
   useEffect(() => { const v = localStorage.getItem("curely-doctor"); if (v && CLINICIANS.some((c) => c.id === v)) setDoctorIdState(v); }, []);
   const setDoctorId = (id: string) => { setDoctorIdState(id); localStorage.setItem("curely-doctor", id); };
-  const doctor = CLINICIANS.find((c) => c.id === doctorId) ?? CLINICIANS[0]!;
+  const doctor = CLINICIANS.find((c) => c.id === doctorId) ?? { id: "d1", name: CURRENT_DOCTOR, hospital: "Vake Family Clinic", specialty: "Family medicine" };
   const [patients, setPatients] = useState(savedPatients);
   const dirty = useRef(new Set<string>());
   const touch = (pid: string) => dirty.current.add(pid);
@@ -319,15 +333,17 @@ export function DemoProvider({ children, savedPatients = initialPatients }: { ch
       const p = patients.find((x) => x.id === pid);
       if (!p) continue;
       const findingReviews = Object.fromEntries(
-        findings.filter((f) => f.patientId === pid && f.status !== "pending").map((f) => [f.id, { status: f.status, doctorNote: f.doctorNote, plan: f.plan, reviewedAt: f.reviewedAt, aiSuggestion: f.aiSuggestion }]),
+        findings.filter((f) => f.patientId === pid).map((f) => [f.id, { status: f.status, doctorNote: f.doctorNote, plan: f.plan, reviewedAt: f.reviewedAt, aiSuggestion: f.aiSuggestion }]),
       );
-      const q = queue.current.get(pid) ?? { inFlight: false, next: null, attempts: 0 };
-      queue.current.set(pid, q);
+      const key = `${pid}:${doctor.id}`;
+      const q = queue.current.get(key) ?? { inFlight: false, next: null, attempts: 0 };
+      queue.current.set(key, q);
+      const status = careStatus(p, doctor.id);
       q.next = {
-        patientId: pid as SavePatientInput["patientId"], status: p.status, completedAt: p.completedAt ?? null,
+        patientId: pid as SavePatientInput["patientId"], doctorId: doctor.id as DoctorId, status: status.status, completedAt: status.completedAt ?? null,
         diagnoses: p.diagnoses, prescriptions: p.prescriptions, findingReviews,
       };
-      flush(pid);
+      flush(key);
     }
   }, [patients, findings]);
   const pname = (pid: string) => patients.find((p) => p.id === pid)?.name ?? "patient";
@@ -344,26 +360,26 @@ export function DemoProvider({ children, savedPatients = initialPatients }: { ch
   };
   const setPatientStatus: Ctx["setPatientStatus"] = (pid, status) => {
     touch(pid);
-    setPatients((ps) => ps.map((p) => (p.id === pid ? { ...p, status, completedAt: status === "done" ? now() : undefined } : p)));
+    setPatients((ps) => ps.map((p) => (p.id === pid ? { ...p, ...(doctor.id === "d1" ? { status, completedAt: status === "done" ? now() : undefined } : {}), doctorStatuses: { ...p.doctorStatuses, [doctor.id]: { status, completedAt: status === "done" ? now() : undefined } } } : p)));
     setAudit((a) => [{ who: `${doctor.name} (${doctor.hospital})`, what: `${status === "done" ? "Marked done" : "Reopened"}: ${pname(pid)}`, when: now() }, ...a]);
   };
   const removeDiagnosis: Ctx["removeDiagnosis"] = (pid, index) => {
     const d = patients.find((p) => p.id === pid)?.diagnoses[index];
-    if (!d) return;
+    if (!d || d.by !== doctor.name) return;
     touch(pid);
     setPatients((ps) => ps.map((p) => (p.id === pid ? { ...p, diagnoses: p.diagnoses.filter((_, i) => i !== index) } : p)));
     setAudit((a) => [{ who: `${doctor.name} (${doctor.hospital})`, what: `Removed diagnosis for ${pname(pid)}: ${d.name}`, when: now() }, ...a]);
   };
   const removePrescription: Ctx["removePrescription"] = (pid, index) => {
     const r = patients.find((p) => p.id === pid)?.prescriptions[index];
-    if (!r) return;
+    if (!r || r.by !== doctor.name) return;
     touch(pid);
     setPatients((ps) => ps.map((p) => (p.id === pid ? { ...p, prescriptions: p.prescriptions.filter((_, i) => i !== index) } : p)));
     setAudit((a) => [{ who: `${doctor.name} (${doctor.hospital})`, what: `Removed prescription ${r.name} for ${pname(pid)}`, when: now() }, ...a]);
   };
   const undoReview: Ctx["undoReview"] = (id) => {
     const f = findings.find((x) => x.id === id);
-    if (!f || f.status === "pending") return;
+    if (!f || f.status === "pending" || f.doctor !== doctor.name) return;
     touch(f.patientId);
     setFindings((fs) => fs.map((x) => (x.id === id ? { ...x, status: "pending", doctorNote: undefined, plan: undefined, reviewedAt: undefined } : x)));
     setAudit((a) => [{ who: f.doctor, what: `Withdrew review of ${f.study} (back to pending)`, when: now() }, ...a]);
@@ -382,6 +398,7 @@ export function DemoProvider({ children, savedPatients = initialPatients }: { ch
 
   const review: Ctx["review"] = (id, status, note, plan, editedText) => {
     const f = findings.find((x) => x.id === id);
+    if (!f || f.doctor !== doctor.name) return;
     if (f) touch(f.patientId);
     setFindings((fs) =>
       fs.map((x) =>

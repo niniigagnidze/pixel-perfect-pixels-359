@@ -45,7 +45,7 @@ export function Shell({ side, children }: { side: "patient" | "doctor"; children
         </div>
       </header>
       <div className="bg-accent/40 px-5 py-1.5 text-center text-sm text-accent-foreground">
-        Saved sample users — not real patients. Record changes last for this session only.
+        Sample accounts only — not real patients. Medicines, diagnoses and messages are saved. No verified sign-in yet.
       </div>
       <main className="mx-auto max-w-6xl px-5 py-8">{children}</main>
     </div>

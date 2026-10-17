@@ -16,9 +16,17 @@ export const messageSchema = z.object({
   time: text(40), urgent: z.boolean().optional(), read: z.boolean().optional(),
 });
 export const patientIdSchema = z.enum(["p1", "p2", "p3", "p4"]);
+export const doctorIdSchema = z.enum(["d1", "d2", "d3"]);
+export const doctorStatusesSchema = z.object({
+  d1: z.object({ status: z.enum(["pending", "done"]), completedAt: text(40).nullable().optional() }).optional(),
+  d2: z.object({ status: z.enum(["pending", "done"]), completedAt: text(40).nullable().optional() }).optional(),
+  d3: z.object({ status: z.enum(["pending", "done"]), completedAt: text(40).nullable().optional() }).optional(),
+});
+export const markReadSchema = z.object({ patientId: patientIdSchema, viewer: z.enum(["patient", "doctor"]), doctorId: doctorIdSchema });
 
 export const savePatientSchema = z.object({
   patientId: patientIdSchema,
+  doctorId: doctorIdSchema,
   status: z.enum(["pending", "done"]),
   completedAt: text(40).nullable(),
   diagnoses: z.array(diagnosisSchema).max(200),
@@ -27,7 +35,7 @@ export const savePatientSchema = z.object({
 });
 export const sendMessageSchema = z.object({
   patientId: patientIdSchema,
-  message: messageSchema.extend({ text: z.string().trim().min(1).max(4000), id: z.string().uuid().or(z.string().regex(/^m\d+$/)) }),
+  message: messageSchema.extend({ doctor: z.enum(["Dr. Giorgi Kapanadze", "Dr. Nika Tsiklauri", "Dr. Mariam Lomidze"]), text: z.string().trim().min(1).max(4000), id: z.string().uuid().or(z.string().regex(/^m\d+$/)) }),
 });
 export type SendMessageInput = z.infer<typeof sendMessageSchema>;
 export type SavePatientInput = z.infer<typeof savePatientSchema>;
@@ -41,6 +49,7 @@ export const mockPatientSchema = z.object({
   allergies: z.array(z.string()), status: z.enum(["pending", "done"]),
   diagnoses: z.array(diagnosisSchema), prescriptions: z.array(prescriptionSchema),
   completed_at: z.string().nullable(), is_mock: z.literal(true),
+  doctor_statuses: doctorStatusesSchema.optional().default({}),
   finding_reviews: z.record(z.string(), findingReviewSchema).optional().default({}),
   messages: z.array(messageSchema).nullable().optional().default(null),
 });
@@ -51,7 +60,7 @@ export const mockPersonaSchema = z.object({
 export function mapMockPatients(usersInput: unknown, patientsInput: unknown): DoctorPatient[] {
   const users = z.array(mockUserSchema).parse(usersInput);
   const patients = z.array(mockPatientSchema).parse(patientsInput);
-  return patients.filter((p) => p.assigned_doctor_id === "d1").map((p) => {
+  return patients.map((p) => {
     const user = users.find((u) => u.id === p.id);
     if (!user) throw new Error("Sample patient identity missing");
     return {
@@ -59,6 +68,7 @@ export function mapMockPatients(usersInput: unknown, patientsInput: unknown): Do
       bloodType: p.blood_type, allergies: p.allergies, status: p.status,
       diagnoses: p.diagnoses, prescriptions: p.prescriptions,
       completedAt: p.completed_at ?? undefined,
+      doctorStatuses: Object.fromEntries(Object.entries(p.doctor_statuses).flatMap(([id, value]) => value ? [[id, { status: value.status, completedAt: value.completedAt ?? undefined }]] : [])),
       findingReviews: p.finding_reviews,
       messages: p.messages ?? undefined,
     };

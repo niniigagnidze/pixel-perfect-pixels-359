@@ -22,7 +22,7 @@ export function FindingCard({ f }: { f: Finding }) {
         <div>
           <p className="text-sm font-semibold text-primary">{f.specialty}</p>
           <h3 className="text-2xl">{f.study}</h3>
-          <p className="text-sm text-muted-foreground">{f.source} · {f.date} · Assigned to {f.doctor}</p>
+          <p className="text-sm text-muted-foreground">{f.hospital} · {f.source} · {f.date} · Assigned to {f.doctor}</p>
         </div>
         <span className={`rounded-full px-3 py-1 text-sm font-semibold ${f.status === "approved" ? "bg-success/15 text-success" : f.status === "rejected" ? "bg-destructive/15 text-destructive" : "bg-warning/20 text-accent-foreground"}`}>
           {f.status === "pending" ? "Needs review" : f.status === "approved" ? "Approved" : "Rejected"}

@@ -6,6 +6,8 @@ import { useDemo, patient, labs, cholesterol } from "@/lib/demo-store";
 import { GeminiAssistant } from "@/components/GeminiAssistant";
 import { buildTimeline, hospitalOf } from "@/lib/hospitals";
 import { Building2 } from "lucide-react";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/patient")({
   head: () => ({
@@ -32,6 +34,7 @@ function Card({ title, icon, children }: { title: string; icon: React.ReactNode;
 
 function PatientPage() {
   const { findings: all, patients } = useDemo();
+  const [selectedHospital, setSelectedHospital] = useState("all");
   const me = patients.find((p) => p.id === "p1");
   const medications = me
     ? me.prescriptions.map((r) => ({ name: r.name, dose: r.dose, by: r.by, since: r.date, hospital: hospitalOf(r.by, r.hospital) }))
@@ -78,20 +81,23 @@ function PatientPage() {
         <h2 className="flex items-center gap-2 text-2xl"><Building2 className="h-6 w-6 text-primary" /> Your care across {hospitals.length} hospitals</h2>
         <p className="mt-1 text-muted-foreground">Everything your hospitals write lands here in one record, newest first.</p>
         <div className="mt-4 flex flex-wrap gap-2">
+          <Button size="sm" variant={selectedHospital === "all" ? "default" : "outline"} onClick={() => setSelectedHospital("all")}>All hospitals</Button>
           {hospitals.map((h) => {
             const n = timeline.filter((t) => t.hospital === h).length;
             const w = pending.filter((f) => f.hospital === h).length;
-            return <span key={h} className="rounded-full bg-secondary px-3 py-1 text-sm font-semibold">{h} · {n} records{w ? ` · ${w} in review` : ""}</span>;
+            return <Button key={h} size="sm" variant={selectedHospital === h ? "default" : "outline"} className="h-auto whitespace-normal py-2" onClick={() => setSelectedHospital(h)}>{h} · {n} records{w ? ` · ${w} in review` : ""}</Button>;
           })}
         </div>
         <ol className="mt-5 space-y-3 border-l-2 border-primary/30 pl-5">
-          {timeline.map((t, i) => (
+          {timeline.filter((t) => selectedHospital === "all" || t.hospital === selectedHospital).map((t, i) => (
             <li key={i}>
               <p className="text-sm text-muted-foreground">{t.date} · <b className="text-foreground">{t.hospital}</b> · {t.by}</p>
               <p><span className="mr-2 rounded bg-muted px-2 text-sm">{t.kind}</span><b>{t.title}</b>{t.detail && ` — ${t.detail}`}</p>
             </li>
           ))}
         </ol>
+        {timeline.filter((t) => selectedHospital === "all" || t.hospital === selectedHospital).length === 0 && <p className="mt-4 text-muted-foreground">No confirmed records yet.</p>}
+        {pending.filter((f) => selectedHospital === "all" || f.hospital === selectedHospital).map((f) => <p key={f.id} className="mt-3 flex items-center gap-2 text-sm text-muted-foreground"><Clock className="h-4 w-4 shrink-0" /> {f.study} · {f.hospital} · Awaiting {f.doctor}</p>)}
       </section>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">

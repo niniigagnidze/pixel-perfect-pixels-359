@@ -12,8 +12,8 @@ describe("Saved mock users", () => {
   it("preserves SSN search identity in the doctor list", () => {
     expect(mapMockPatients(users, [patient])[0]).toMatchObject({ id: "p1", name: "Ana Beridze", ssn: "01024056789", status: "pending" });
   });
-  it("excludes patients assigned to another doctor", () => {
-    expect(mapMockPatients(users, [{ ...patient, assigned_doctor_id: "d2" }])).toEqual([]);
+  it("loads patients from other hospital doctors into the shared record", () => {
+    expect(mapMockPatients(users, [{ ...patient, assigned_doctor_id: "d2" }])[0]?.id).toBe("p1");
   });
   it("preserves the Done queue and completion time", () => {
     expect(mapMockPatients(users, [{ ...patient, status: "done", completed_at: "11 Oct 2026, 10:10" }])[0]).toMatchObject({ status: "done", completedAt: "11 Oct 2026, 10:10" });

@@ -3,26 +3,27 @@ import { CheckCheck, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { useDemo, CURRENT_DOCTOR } from "@/lib/demo-store";
+import { useDemo } from "@/lib/demo-store";
+import { CLINICIANS, conversation, type DoctorId } from "@/lib/hospitals";
 
-export function ChatThread({ patientId, viewer, otherName }: { patientId: string; viewer: "patient" | "doctor"; otherName: string }) {
-  const { threads, sendMessage, markRead, doctor } = useDemo();
-  const doctorName = doctor.name;
-  const list = threads[patientId] ?? [];
+export function ChatThread({ patientId, viewer, otherName, doctorId }: { patientId: string; viewer: "patient" | "doctor"; otherName: string; doctorId: DoctorId }) {
+  const { threads, sendMessage, markRead } = useDemo();
+  const doctorName = CLINICIANS.find((d) => d.id === doctorId)?.name ?? "";
+  const list = conversation(threads[patientId] ?? [], doctorName);
   const [text, setText] = useState("");
   const [urgent, setUrgent] = useState(false);
   const end = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    markRead(patientId, viewer);
+    markRead(patientId, viewer, doctorId);
     end.current?.scrollIntoView({ block: "nearest" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [list.length, patientId, viewer]);
+  }, [list.length, list.filter((m) => !m.read).length, patientId, viewer, doctorId]);
 
   const submit = () => {
     const t = text.trim();
     if (!t) return;
-    sendMessage(patientId, { from: viewer, doctor: viewer === "doctor" ? doctorName : CURRENT_DOCTOR, text: t, urgent: viewer === "patient" ? urgent : undefined });
+    sendMessage(patientId, { from: viewer, doctor: doctorName, text: t, urgent: viewer === "patient" ? urgent : undefined });
     setText("");
     setUrgent(false);
   };
