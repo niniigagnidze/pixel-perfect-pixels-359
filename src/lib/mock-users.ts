@@ -68,7 +68,7 @@ export function mapMockPatients(usersInput: unknown, patientsInput: unknown): Do
       bloodType: p.blood_type, allergies: p.allergies, status: p.status,
       diagnoses: p.diagnoses, prescriptions: p.prescriptions,
       completedAt: p.completed_at ?? undefined,
-      doctorStatuses: Object.fromEntries(Object.entries(p.doctor_statuses).map(([id, value]) => [id, { status: value.status, completedAt: value.completedAt ?? undefined }])),
+      doctorStatuses: Object.fromEntries(Object.entries(p.doctor_statuses).flatMap(([id, value]) => value ? [[id, { status: value.status, completedAt: value.completedAt ?? undefined }]] : [])),
       findingReviews: p.finding_reviews,
       messages: p.messages ?? undefined,
     };

@@ -37,7 +37,7 @@ function Messages() {
           <h2 className="mb-3 text-xl">Your doctors</h2>
           <div className="divide-y border-y">
             {CLINICIANS.map((d) => {
-              const list = conversation(threads.p1 ?? [], d.name);
+              const list = conversation(threads["p1"] ?? [], d.name);
               const unread = list.filter((m) => m.from === "doctor" && !m.read).length;
               const last = list.at(-1);
               return (

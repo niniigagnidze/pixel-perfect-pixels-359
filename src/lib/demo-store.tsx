@@ -270,7 +270,7 @@ export function DemoProvider({ children, savedPatients = initialPatients }: { ch
         if (!p) return f;
         const base = initialFindings.find((row) => row.id === f.id);
         const r = p.findingReviews?.[f.id];
-        return r ? { ...f, ...r } : { ...f, status: base?.status ?? "pending", doctorNote: base?.doctorNote, plan: base?.plan, reviewedAt: base?.reviewedAt };
+        return r ? { ...f, ...r, aiSuggestion: r.aiSuggestion ?? f.aiSuggestion } : { ...f, status: base?.status ?? "pending", doctorNote: base?.doctorNote, plan: base?.plan, reviewedAt: base?.reviewedAt };
       }));
     }).catch(() => {});
     const id = setInterval(tick, 4000);
@@ -333,7 +333,7 @@ export function DemoProvider({ children, savedPatients = initialPatients }: { ch
       const p = patients.find((x) => x.id === pid);
       if (!p) continue;
       const findingReviews = Object.fromEntries(
-        findings.filter((f) => f.patientId === pid && f.status !== "pending").map((f) => [f.id, { status: f.status, doctorNote: f.doctorNote, plan: f.plan, reviewedAt: f.reviewedAt, aiSuggestion: f.aiSuggestion }]),
+        findings.filter((f) => f.patientId === pid).map((f) => [f.id, { status: f.status, doctorNote: f.doctorNote, plan: f.plan, reviewedAt: f.reviewedAt, aiSuggestion: f.aiSuggestion }]),
       );
       const key = `${pid}:${doctor.id}`;
       const q = queue.current.get(key) ?? { inFlight: false, next: null, attempts: 0 };
