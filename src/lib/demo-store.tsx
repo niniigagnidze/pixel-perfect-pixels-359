@@ -83,7 +83,7 @@ export const labs = [
   { name: "Hemoglobin", value: "13.2 g/dL", range: "12 – 15.5", status: "Normal" },
 ];
 
-const initialFindings: Finding[] = [
+export const initialFindings: Finding[] = [
   {
     id: "f1",
     patientId: "p1",
@@ -164,7 +164,7 @@ export interface DoctorPatient {
   completedAt?: string | undefined;
 }
 
-const initialPatients: DoctorPatient[] = [
+export const initialPatients: DoctorPatient[] = [
   { id: "p1", name: "Ana Beridze", ssn: "01024056789", dob: "14 Mar 1979", bloodType: "A+", allergies: ["Penicillin (severe)", "Pollen"], status: "pending",
     diagnoses: [{ name: "Mild hypercholesterolemia", note: "Diet + statin.", date: "12 Feb 2026", by: CURRENT_DOCTOR }],
     prescriptions: [{ name: "Atorvastatin 10 mg", dose: "Once daily, evening", date: "12 Feb 2026", by: CURRENT_DOCTOR }] },

@@ -4,18 +4,20 @@ import { AlertTriangle, Bot, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useDemo, type Finding, type Plan } from "@/lib/demo-store";
+import { GeminiAssistant } from "@/components/GeminiAssistant";
 
 const plans: Plan[] = ["No visit needed", "Book follow-up visit", "Order more tests"];
 
 export function FindingCard({ f }: { f: Finding }) {
   const { review } = useDemo();
   const [text, setText] = useState(f.aiSuggestion);
+  const [generated, setGenerated] = useState(false);
   const [note, setNote] = useState("");
   const [plan, setPlan] = useState<Plan>("Book follow-up visit");
   const done = f.status !== "pending";
 
   return (
-    <article className="rounded-2xl border bg-card p-6 shadow-sm">
+    <article className="min-w-0 rounded-2xl border bg-card p-6 shadow-sm">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="text-sm font-semibold text-primary">{f.specialty}</p>
@@ -28,8 +30,9 @@ export function FindingCard({ f }: { f: Finding }) {
       </div>
 
       <div className="mt-4 rounded-xl bg-ai-soft p-4">
-        <p className="flex items-center gap-2 text-sm font-semibold text-ai"><Bot className="h-4 w-4" /> AI assistant suggestion · {Math.round(f.confidence * 100)}% confidence</p>
+        <p className="flex items-center gap-2 text-sm font-semibold text-ai"><Bot className="h-4 w-4" /> {generated ? "Gemini draft · requires clinician review" : "Sample AI assistant suggestion"}</p>
         {done ? <p className="mt-2">{f.aiSuggestion}</p> : <Textarea className="mt-2 bg-card" value={text} onChange={(e) => setText(e.target.value)} rows={3} />}
+        {!done && <GeminiAssistant request={{ kind: "analysis", patientId: f.patientId as "p1" | "p2" | "p3" | "p4", findingId: f.id }} label="Generate Gemini draft" onGenerated={(draft) => { setText(draft); setGenerated(true); }} />}
       </div>
 
       {f.flags.map((fl) => (
@@ -46,8 +49,8 @@ export function FindingCard({ f }: { f: Finding }) {
               <Button key={p} type="button" variant={plan === p ? "default" : "outline"} size="sm" onClick={() => setPlan(p)}>{p}</Button>
             ))}
           </div>
-          <div className="flex gap-2">
-            <Button onClick={() => { review(f.id, "approved", note || "Results reviewed.", plan, text); toast.success("Approved — patient notified"); }}>
+          <div className="flex flex-wrap gap-2">
+            <Button className="h-auto whitespace-normal py-2 text-left" onClick={() => { review(f.id, "approved", note || "Results reviewed.", plan, text); toast.success("Approved — patient notified"); }}>
               <Check className="h-4 w-4" /> Approve & send to patient
             </Button>
             <Button variant="outline" onClick={() => { review(f.id, "rejected", note || "AI suggestion rejected.", plan); toast("Suggestion rejected — not shown to patient"); }}>

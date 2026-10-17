@@ -3,6 +3,7 @@ import { Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YA
 import { AlertTriangle, Bone, Clock, FileText, Pill, Syringe, TestTube, Phone } from "lucide-react";
 import { Shell, AiBadge } from "@/components/Shell";
 import { useDemo, patient, labs, cholesterol } from "@/lib/demo-store";
+import { GeminiAssistant } from "@/components/GeminiAssistant";
 
 export const Route = createFileRoute("/patient")({
   head: () => ({
@@ -11,6 +12,8 @@ export const Route = createFileRoute("/patient")({
       { name: "description", content: "Your medical record and plain-language summaries." },
       { property: "og:title", content: "My health — Curely" },
       { property: "og:description", content: "Your medical record and plain-language summaries." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary" },
     ],
   }),
   component: PatientPage,
@@ -53,6 +56,7 @@ function PatientPage() {
           ))}
         </ul>
         <p className="mt-3 text-sm text-muted-foreground">This summary is not a diagnosis. Always follow your doctor's advice.</p>
+        <GeminiAssistant request={{ kind: "summary", patientId: "p1" }} label="Generate Gemini summary" />
       </section>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">

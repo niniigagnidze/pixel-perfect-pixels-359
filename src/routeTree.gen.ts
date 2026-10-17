@@ -15,6 +15,7 @@ import { Route as DoctorRouteImport } from './routes/doctor'
 import { Route as FamilyRouteImport } from './routes/family'
 import { Route as MessagesRouteImport } from './routes/messages'
 import { Route as PatientRouteImport } from './routes/patient'
+import { Route as ApiAiRouteImport } from './routes/api/ai'
 import { Route as DoctorPatientIdRouteImport } from './routes/doctor_.$patientId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -47,6 +48,11 @@ const PatientRoute = PatientRouteImport.update({
   path: '/patient',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAiRoute = ApiAiRouteImport.update({
+  id: '/api/ai',
+  path: '/api/ai',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DoctorPatientIdRoute = DoctorPatientIdRouteImport.update({
   id: '/doctor_/$patientId',
   path: '/doctor/$patientId',
@@ -60,6 +66,7 @@ export interface FileRoutesByFullPath {
   '/family': typeof FamilyRoute
   '/messages': typeof MessagesRoute
   '/patient': typeof PatientRoute
+  '/api/ai': typeof ApiAiRoute
   '/doctor/$patientId': typeof DoctorPatientIdRoute
 }
 export interface FileRoutesByTo {
@@ -69,6 +76,7 @@ export interface FileRoutesByTo {
   '/family': typeof FamilyRoute
   '/messages': typeof MessagesRoute
   '/patient': typeof PatientRoute
+  '/api/ai': typeof ApiAiRoute
   '/doctor/$patientId': typeof DoctorPatientIdRoute
 }
 export interface FileRoutesById {
@@ -79,6 +87,7 @@ export interface FileRoutesById {
   '/family': typeof FamilyRoute
   '/messages': typeof MessagesRoute
   '/patient': typeof PatientRoute
+  '/api/ai': typeof ApiAiRoute
   '/doctor_/$patientId': typeof DoctorPatientIdRoute
 }
 export interface FileRouteTypes {
@@ -90,6 +99,7 @@ export interface FileRouteTypes {
     | '/family'
     | '/messages'
     | '/patient'
+    | '/api/ai'
     | '/doctor/$patientId'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -99,6 +109,7 @@ export interface FileRouteTypes {
     | '/family'
     | '/messages'
     | '/patient'
+    | '/api/ai'
     | '/doctor/$patientId'
   id:
     | '__root__'
@@ -108,6 +119,7 @@ export interface FileRouteTypes {
     | '/family'
     | '/messages'
     | '/patient'
+    | '/api/ai'
     | '/doctor_/$patientId'
   fileRoutesById: FileRoutesById
 }
@@ -118,6 +130,7 @@ export interface RootRouteChildren {
   FamilyRoute: typeof FamilyRoute
   MessagesRoute: typeof MessagesRoute
   PatientRoute: typeof PatientRoute
+  ApiAiRoute: typeof ApiAiRoute
   DoctorPatientIdRoute: typeof DoctorPatientIdRoute
 }
 
@@ -165,6 +178,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PatientRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/ai': {
+      id: '/api/ai'
+      path: '/api/ai'
+      fullPath: '/api/ai'
+      preLoaderRoute: typeof ApiAiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/doctor_/$patientId': {
       id: '/doctor_/$patientId'
       path: '/doctor/$patientId'
@@ -182,6 +202,7 @@ const rootRouteChildren: RootRouteChildren = {
   FamilyRoute: FamilyRoute,
   MessagesRoute: MessagesRoute,
   PatientRoute: PatientRoute,
+  ApiAiRoute: ApiAiRoute,
   DoctorPatientIdRoute: DoctorPatientIdRoute,
 }
 export const routeTree = rootRouteImport
