@@ -161,7 +161,7 @@ export interface DoctorPatient {
   status: "pending" | "done";
   diagnoses: Diagnosis[];
   prescriptions: Prescription[];
-  completedAt?: string;
+  completedAt?: string | undefined;
 }
 
 const initialPatients: DoctorPatient[] = [
