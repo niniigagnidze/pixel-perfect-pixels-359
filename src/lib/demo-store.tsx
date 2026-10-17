@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
-import { saveMockPatientRecord } from "./mock-users.functions";
+import { getMockThreads, saveMockPatientRecord, sendMockMessage } from "./mock-users.functions";
 import type { SavePatientInput } from "./mock-users";
 
 export const CURRENT_DOCTOR = "Dr. Giorgi Kapanadze";
@@ -202,6 +202,9 @@ interface Ctx {
   removePrescription: (pid: string, index: number) => void;
   undoReview: (id: string) => void;
   messages: Message[];
+  threads: Record<string, Message[]>;
+  sendMessage: (pid: string, m: Omit<Message, "id" | "time">) => void;
+  markRead: (pid: string, viewer: "patient" | "doctor") => void;
   audit: AuditEntry[];
   sharing: Record<string, Record<string, boolean>>;
   review: (id: string, status: FindingStatus, note: string, plan: Plan, editedText?: string) => void;
@@ -229,7 +232,43 @@ export function DemoProvider({ children, savedPatients = initialPatients }: { ch
       return r ? { ...f, status: r.status, doctorNote: r.doctorNote, plan: r.plan, reviewedAt: r.reviewedAt, aiSuggestion: r.aiSuggestion ?? f.aiSuggestion } : f;
     }),
   );
-  const [messages, setMessages] = useState<Message[]>(() => savedPatients.find((p) => p.id === "p1")?.messages ?? initialMessages);
+  const [threads, setThreads] = useState<Record<string, Message[]>>(() =>
+    Object.fromEntries(savedPatients.map((p) => [p.id, p.messages ?? (p.id === "p1" ? initialMessages : [])])),
+  );
+  const messages = threads["p1"] ?? [];
+  const mergeThreads = (incoming: Record<string, Message[]>) =>
+    setThreads((cur) => {
+      let changed = false;
+      const next = { ...cur };
+      for (const [pid, list] of Object.entries(incoming)) {
+        const have = new Set((cur[pid] ?? []).map((m) => m.id));
+        const extra = list.filter((m) => !have.has(m.id));
+        if (extra.length) { changed = true; next[pid] = [...(cur[pid] ?? []), ...extra]; }
+      }
+      return changed ? next : cur;
+    });
+  useEffect(() => {
+    let stop = false;
+    const tick = () => getMockThreads().then((t) => { if (!stop) mergeThreads(t); }).catch(() => {});
+    const id = setInterval(tick, 4000);
+    return () => { stop = true; clearInterval(id); };
+  }, []);
+  const sendMessage: Ctx["sendMessage"] = (pid, m) => {
+    const msg: Message = { ...m, id: crypto.randomUUID(), time: now(), read: false };
+    setThreads((t) => ({ ...t, [pid]: [...(t[pid] ?? []), msg] }));
+    const attempt = (n: number) =>
+      sendMockMessage({ data: { patientId: pid as SavePatientInput["patientId"], message: msg } }).catch(() => {
+        if (n < 4) setTimeout(() => attempt(n + 1), 1000 * 2 ** n);
+        else import("sonner").then(({ toast }) => toast.error("Message could not be sent. Please try again."));
+      });
+    attempt(0);
+  };
+  const markRead: Ctx["markRead"] = (pid, viewer) =>
+    setThreads((t) => {
+      const list = t[pid] ?? [];
+      if (!list.some((m) => m.from !== viewer && !m.read)) return t;
+      return { ...t, [pid]: list.map((m) => (m.from !== viewer ? { ...m, read: true } : m)) };
+    });
   const [patients, setPatients] = useState(savedPatients);
   const dirty = useRef(new Set<string>());
   const touch = (pid: string) => dirty.current.add(pid);
@@ -274,11 +313,10 @@ export function DemoProvider({ children, savedPatients = initialPatients }: { ch
       q.next = {
         patientId: pid as SavePatientInput["patientId"], status: p.status, completedAt: p.completedAt ?? null,
         diagnoses: p.diagnoses, prescriptions: p.prescriptions, findingReviews,
-        messages: pid === "p1" ? messages : null,
       };
       flush(pid);
     }
-  }, [patients, findings, messages]);
+  }, [patients, findings]);
   const pname = (pid: string) => patients.find((p) => p.id === pid)?.name ?? "patient";
   const today = () => new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
   const addDiagnosis: Ctx["addDiagnosis"] = (pid, name, note) => {
@@ -317,7 +355,7 @@ export function DemoProvider({ children, savedPatients = initialPatients }: { ch
     setFindings((fs) => fs.map((x) => (x.id === id ? { ...x, status: "pending", doctorNote: undefined, plan: undefined, reviewedAt: undefined } : x)));
     setAudit((a) => [{ who: f.doctor, what: `Withdrew review of ${f.study} (back to pending)`, when: now() }, ...a]);
     if (f.status === "approved")
-      setMessages((m) => [...m, { id: crypto.randomUUID(), from: "doctor", doctor: f.doctor, text: `Correction: my earlier review of your ${f.study} was withdrawn and is being reviewed again.`, time: now() }]);
+      sendMessage(f.patientId, { from: "doctor", doctor: f.doctor, text: `Correction: my earlier review of your ${f.study} was withdrawn and is being reviewed again.` });
   };
   const [audit, setAudit] = useState<AuditEntry[]>([
     { who: "Dr. Giorgi Kapanadze", what: "Approved lipid panel summary", when: "14 Oct, 16:20" },
@@ -340,14 +378,11 @@ export function DemoProvider({ children, savedPatients = initialPatients }: { ch
     if (f) {
       setAudit((a) => [{ who: f.doctor, what: `${status === "approved" ? "Approved" : "Rejected"} AI finding: ${f.study}`, when: now() }, ...a]);
       if (status === "approved")
-        setMessages((m) => [
-          ...m,
-          { id: crypto.randomUUID(), from: "doctor", doctor: f.doctor, text: `I've reviewed your ${f.study}. ${note} Plan: ${plan}.`, time: now() },
-        ]);
+        sendMessage(f.patientId, { from: "doctor", doctor: f.doctor, text: `I've reviewed your ${f.study}. ${note} Plan: ${plan}.` });
     }
   };
 
-  const send: Ctx["send"] = (m) => { touch("p1"); setMessages((ms) => [...ms, { ...m, id: crypto.randomUUID(), time: now() }]); };
+  const send: Ctx["send"] = (m) => sendMessage("p1", m);
 
   const toggleShare = (person: string, cat: string) => {
     setSharing((s) => ({ ...s, [person]: { ...s[person], [cat]: !s[person]?.[cat] } }));
@@ -363,7 +398,7 @@ export function DemoProvider({ children, savedPatients = initialPatients }: { ch
   const setTwoStep = (v: boolean) => { setTwo(v); log(`${v ? "Enabled" : "Disabled"} 2-step verification`); };
   const canSee = (person: string, cat: string) => !confidential && !privateCats[cat] && !!sharing[person]?.[cat];
 
-  return <DemoCtx.Provider value={{ confidential, setConfidential, privateCats, togglePrivate, twoStep, setTwoStep, canSee, findings, patients, addDiagnosis, addPrescription, setPatientStatus, removeDiagnosis, removePrescription, undoReview, messages, audit, sharing, review, send, toggleShare }}>{children}</DemoCtx.Provider>;
+  return <DemoCtx.Provider value={{ confidential, setConfidential, privateCats, togglePrivate, twoStep, setTwoStep, canSee, findings, patients, addDiagnosis, addPrescription, setPatientStatus, removeDiagnosis, removePrescription, undoReview, messages, threads, sendMessage, markRead, audit, sharing, review, send, toggleShare }}>{children}</DemoCtx.Provider>;
 }
 
 export function useDemo() {
