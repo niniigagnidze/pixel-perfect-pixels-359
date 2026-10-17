@@ -200,6 +200,13 @@ interface Ctx {
   review: (id: string, status: FindingStatus, note: string, plan: Plan, editedText?: string) => void;
   send: (m: Omit<Message, "id" | "time">) => void;
   toggleShare: (person: string, cat: string) => void;
+  confidential: boolean;
+  setConfidential: (v: boolean) => void;
+  privateCats: Record<string, boolean>;
+  togglePrivate: (cat: string) => void;
+  twoStep: boolean;
+  setTwoStep: (v: boolean) => void;
+  canSee: (person: string, cat: string) => boolean;
 }
 
 const DemoCtx = createContext<Ctx | null>(null);
@@ -260,7 +267,16 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     setAudit((a) => [{ who: patient.name, what: `Changed sharing of ${cat} with ${person}`, when: now() }, ...a]);
   };
 
-  return <DemoCtx.Provider value={{ findings, patients, addDiagnosis, addPrescription, setPatientStatus, messages, audit, sharing, review, send, toggleShare }}>{children}</DemoCtx.Provider>;
+  const [confidential, setConf] = useState(false);
+  const [privateCats, setPrivateCats] = useState<Record<string, boolean>>({ "Family history": false });
+  const [twoStep, setTwo] = useState(true);
+  const log = (what: string) => setAudit((a) => [{ who: patient.name, what, when: now() }, ...a]);
+  const setConfidential = (v: boolean) => { setConf(v); log(v ? "Turned on confidential mode (hidden from family)" : "Turned off confidential mode"); };
+  const togglePrivate = (cat: string) => { setPrivateCats((s) => ({ ...s, [cat]: !s[cat] })); log(`Set ${cat} to ${privateCats[cat] ? "shareable" : "private"}`); };
+  const setTwoStep = (v: boolean) => { setTwo(v); log(`${v ? "Enabled" : "Disabled"} 2-step verification`); };
+  const canSee = (person: string, cat: string) => !confidential && !privateCats[cat] && !!sharing[person]?.[cat];
+
+  return <DemoCtx.Provider value={{ confidential, setConfidential, privateCats, togglePrivate, twoStep, setTwoStep, canSee, findings, patients, addDiagnosis, addPrescription, setPatientStatus, messages, audit, sharing, review, send, toggleShare }}>{children}</DemoCtx.Provider>;
 }
 
 export function useDemo() {
