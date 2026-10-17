@@ -30,7 +30,7 @@ function Messages() {
     <Shell side="patient">
       <h1 className="text-4xl">Messages</h1>
       <p className="mt-3 flex items-center gap-2 rounded-xl bg-destructive/10 px-4 py-3 text-destructive">
-        <AlertTriangle className="h-5 w-5" /> Messaging is not for emergencies. In an emergency call <b>112</b>.
+        <AlertTriangle className="h-5 w-5 shrink-0" /><span>Messaging is not for emergencies. In an emergency call <b>112</b>.</span>
       </p>
       <div className="mt-6 grid min-w-0 gap-6 lg:grid-cols-[300px_minmax(0,1fr)]">
         <aside className="min-w-0">

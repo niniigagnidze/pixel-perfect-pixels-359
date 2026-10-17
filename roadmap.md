@@ -9,6 +9,6 @@
 - [x] Test database access and the patient-search flow; distinguish sample users from sign-in accounts.
 
 # Multi-hospital conversations
-- [ ] Separate patient conversations by doctor and hospital, including scoped unread state.
-- [ ] Ensure each hospital's doctor can manage their own patient queue and contribute to the combined record.
-- [ ] Verify persisted updates, cross-doctor chat isolation and hospital labels in both portals.
+- [x] Separate patient conversations by doctor and hospital, including scoped unread state.
+- [x] Ensure each hospital's doctor can manage their own patient queue and contribute to the combined record.
+- [x] Verify persisted updates, cross-doctor chat isolation and hospital labels in both portals.
