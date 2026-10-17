@@ -2,8 +2,8 @@ import { z } from "zod";
 import type { DoctorPatient } from "./demo-store";
 
 const text = (max: number) => z.string().max(max);
-export const diagnosisSchema = z.object({ name: text(200), note: text(2000), date: text(40), by: text(120) });
-export const prescriptionSchema = z.object({ name: text(200), dose: text(300), date: text(40), by: text(120) });
+export const diagnosisSchema = z.object({ name: text(200), note: text(2000), date: text(40), by: text(120), hospital: text(160).optional() });
+export const prescriptionSchema = z.object({ name: text(200), dose: text(300), date: text(40), by: text(120), hospital: text(160).optional() });
 export const findingReviewSchema = z.object({
   status: z.enum(["pending", "approved", "rejected"]),
   doctorNote: text(4000).optional(),

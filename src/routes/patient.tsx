@@ -4,6 +4,8 @@ import { AlertTriangle, Bone, Clock, FileText, Pill, Syringe, TestTube, Phone } 
 import { Shell, AiBadge } from "@/components/Shell";
 import { useDemo, patient, labs, cholesterol } from "@/lib/demo-store";
 import { GeminiAssistant } from "@/components/GeminiAssistant";
+import { buildTimeline, hospitalOf } from "@/lib/hospitals";
+import { Building2 } from "lucide-react";
 
 export const Route = createFileRoute("/patient")({
   head: () => ({
@@ -32,15 +34,20 @@ function PatientPage() {
   const { findings: all, patients } = useDemo();
   const me = patients.find((p) => p.id === "p1");
   const medications = me
-    ? me.prescriptions.map((r) => ({ name: r.name, dose: r.dose, by: r.by, since: r.date }))
-    : patient.medications;
+    ? me.prescriptions.map((r) => ({ name: r.name, dose: r.dose, by: r.by, since: r.date, hospital: hospitalOf(r.by, r.hospital) }))
+    : patient.medications.map((m) => ({ ...m, hospital: "Vake Family Clinic" }));
   const conditions = [
-    ...(me ? me.diagnoses.map((d) => ({ name: d.name, status: "Active", by: d.by, date: d.date, note: d.note })) : []),
-    ...patient.conditions.filter((c) => c.status === "Past").map((c) => ({ ...c, note: "" })),
+    ...(me ? me.diagnoses.map((d) => ({ name: d.name, status: "Active", by: d.by, date: d.date, note: d.note, hospital: hospitalOf(d.by, d.hospital) })) : []),
+    ...patient.conditions.filter((c) => c.status === "Past").map((c) => ({ ...c, note: "", hospital: c.by })),
   ];
   const findings = all.filter((f) => f.patientId === "p1");
   const approved = findings.filter((f) => f.status === "approved");
   const pending = findings.filter((f) => f.status === "pending");
+  const timeline = buildTimeline({
+    diagnoses: me?.diagnoses ?? [], prescriptions: me?.prescriptions ?? [],
+    results: approved.map((f) => ({ study: f.study, note: f.doctorNote ?? "", date: f.date, doctor: f.doctor, hospital: f.hospital })),
+  });
+  const hospitals = [...new Set([...timeline.map((t) => t.hospital), ...pending.map((f) => f.hospital)])];
 
   return (
     <Shell side="patient">
@@ -67,6 +74,26 @@ function PatientPage() {
         <GeminiAssistant request={{ kind: "summary", patientId: "p1" }} label="Generate Gemini summary" />
       </section>
 
+      <section className="mt-6 rounded-2xl border bg-card p-6 shadow-sm">
+        <h2 className="flex items-center gap-2 text-2xl"><Building2 className="h-6 w-6 text-primary" /> Your care across {hospitals.length} hospitals</h2>
+        <p className="mt-1 text-muted-foreground">Everything your hospitals write lands here in one record, newest first.</p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {hospitals.map((h) => {
+            const n = timeline.filter((t) => t.hospital === h).length;
+            const w = pending.filter((f) => f.hospital === h).length;
+            return <span key={h} className="rounded-full bg-secondary px-3 py-1 text-sm font-semibold">{h} · {n} records{w ? ` · ${w} in review` : ""}</span>;
+          })}
+        </div>
+        <ol className="mt-5 space-y-3 border-l-2 border-primary/30 pl-5">
+          {timeline.map((t, i) => (
+            <li key={i}>
+              <p className="text-sm text-muted-foreground">{t.date} · <b className="text-foreground">{t.hospital}</b> · {t.by}</p>
+              <p><span className="mr-2 rounded bg-muted px-2 text-sm">{t.kind}</span><b>{t.title}</b>{t.detail && ` — ${t.detail}`}</p>
+            </li>
+          ))}
+        </ol>
+      </section>
+
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <Card title="Doctor-confirmed results" icon={<Bone className="h-5 w-5 text-primary" />}>
           {approved.length === 0 && <p className="text-muted-foreground">Nothing new yet.</p>}
@@ -75,12 +102,12 @@ function PatientPage() {
               <li key={f.id} className="rounded-xl bg-muted p-4">
                 <div className="flex justify-between gap-2"><b>{f.study}</b><span className="text-sm text-success font-semibold">Confirmed</span></div>
                 <p className="mt-1">{f.doctorNote}</p>
-                <p className="mt-1 text-sm text-muted-foreground">{f.doctor} · {f.specialty} · {f.reviewedAt} · Plan: {f.plan}</p>
+                <p className="mt-1 text-sm text-muted-foreground">{f.hospital} · {f.doctor} · {f.specialty} · {f.reviewedAt} · Plan: {f.plan}</p>
               </li>
             ))}
             {pending.map((f) => (
               <li key={f.id} className="flex items-center gap-2 rounded-xl border border-dashed p-4 text-muted-foreground">
-                <Clock className="h-4 w-4" /> {f.study} — awaiting review by {f.doctor}
+                <Clock className="h-4 w-4" /> {f.study} — awaiting review by {f.doctor} at {f.hospital}
               </li>
             ))}
           </ul>
@@ -129,7 +156,7 @@ function PatientPage() {
           <ul className="space-y-3">
             {medications.length === 0 && <li className="text-muted-foreground">No medicines prescribed.</li>}
             {medications.map((m, i) => (
-              <li key={`${m.name}-${i}`}><b>{m.name}</b><p className="text-sm text-muted-foreground">{m.dose} · prescribed by {m.by} · since {m.since}</p></li>
+              <li key={`${m.name}-${i}`}><b>{m.name}</b><p className="text-sm text-muted-foreground">{m.dose} · prescribed by {m.by} at {m.hospital} · since {m.since}</p></li>
             ))}
           </ul>
         </Card>
@@ -137,7 +164,7 @@ function PatientPage() {
         <Card title="Conditions & surgeries" icon={<FileText className="h-5 w-5 text-primary" />}>
           <ul className="space-y-3">
             {conditions.map((c, i) => (
-              <li key={`${c.name}-${i}`}><b>{c.name}</b> <span className="ml-1 rounded-full bg-secondary px-2 text-sm">{c.status}</span>{c.note && <p className="text-sm">{c.note}</p>}<p className="text-sm text-muted-foreground">{c.by} · {c.date}</p></li>
+              <li key={`${c.name}-${i}`}><b>{c.name}</b> <span className="ml-1 rounded-full bg-secondary px-2 text-sm">{c.status}</span>{c.note && <p className="text-sm">{c.note}</p>}<p className="text-sm text-muted-foreground">{c.by}{c.hospital !== c.by ? ` · ${c.hospital}` : ""} · {c.date}</p></li>
             ))}
           </ul>
         </Card>

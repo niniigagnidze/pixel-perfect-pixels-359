@@ -6,7 +6,8 @@ import { Switch } from "@/components/ui/switch";
 import { useDemo, CURRENT_DOCTOR } from "@/lib/demo-store";
 
 export function ChatThread({ patientId, viewer, otherName }: { patientId: string; viewer: "patient" | "doctor"; otherName: string }) {
-  const { threads, sendMessage, markRead } = useDemo();
+  const { threads, sendMessage, markRead, doctor } = useDemo();
+  const doctorName = doctor.name;
   const list = threads[patientId] ?? [];
   const [text, setText] = useState("");
   const [urgent, setUrgent] = useState(false);
@@ -21,7 +22,7 @@ export function ChatThread({ patientId, viewer, otherName }: { patientId: string
   const submit = () => {
     const t = text.trim();
     if (!t) return;
-    sendMessage(patientId, { from: viewer, doctor: CURRENT_DOCTOR, text: t, urgent: viewer === "patient" ? urgent : undefined });
+    sendMessage(patientId, { from: viewer, doctor: viewer === "doctor" ? doctorName : CURRENT_DOCTOR, text: t, urgent: viewer === "patient" ? urgent : undefined });
     setText("");
     setUrgent(false);
   };

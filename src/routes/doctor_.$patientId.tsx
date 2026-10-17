@@ -6,7 +6,10 @@ import { Shell } from "@/components/Shell";
 import { FindingCard } from "@/components/FindingCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { useDemo, CURRENT_DOCTOR } from "@/lib/demo-store";
+import { useDemo } from "@/lib/demo-store";
+import { hospitalOf } from "@/lib/hospitals";
+import { DoctorSwitcher } from "@/components/DoctorSwitcher";
+import { Building2 } from "lucide-react";
 import { GeminiAssistant } from "@/components/GeminiAssistant";
 import { ChatThread } from "@/components/ChatThread";
 
@@ -26,7 +29,7 @@ export const Route = createFileRoute("/doctor_/$patientId")({
 
 function PatientFile() {
   const { patientId } = Route.useParams();
-  const { patients, findings, addDiagnosis, addPrescription, setPatientStatus, removeDiagnosis, removePrescription } = useDemo();
+  const { doctor, patients, findings, addDiagnosis, addPrescription, setPatientStatus, removeDiagnosis, removePrescription } = useDemo();
   const navigate = useNavigate();
   const p = patients.find((x) => x.id === patientId);
   const [dx, setDx] = useState({ name: "", note: "" });
@@ -39,14 +42,15 @@ function PatientFile() {
       </Shell>
     );
 
-  const mine = findings.filter((f) => f.patientId === p.id && f.doctor === CURRENT_DOCTOR);
+  const mine = findings.filter((f) => f.patientId === p.id && f.doctor === doctor.name);
+  const elsewhere = findings.filter((f) => f.patientId === p.id && f.doctor !== doctor.name && f.status === "approved");
   const pending = mine.filter((f) => f.status === "pending");
   const reviewed = mine.filter((f) => f.status !== "pending");
   const done = p.status === "done";
 
   return (
     <Shell side="doctor">
-      <Link to="/doctor" className="inline-flex items-center gap-1 text-sm text-primary"><ArrowLeft className="h-4 w-4" /> All patients</Link>
+      <div className="flex flex-wrap items-center justify-between gap-2"><Link to="/doctor" className="inline-flex items-center gap-1 text-sm text-primary"><ArrowLeft className="h-4 w-4" /> All patients</Link><DoctorSwitcher /></div>
       <div className="mt-2 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-4xl">{p.name}</h1>
@@ -77,6 +81,16 @@ function PatientFile() {
           {mine.length === 0 && <p className="rounded-xl bg-muted p-6 text-center">No analyses assigned to you.</p>}
           {pending.map((f) => <FindingCard key={f.id} f={f} />)}
           {reviewed.map((f) => <FindingCard key={f.id} f={f} />)}
+          {elsewhere.length > 0 && (
+            <section className="rounded-2xl border bg-muted/40 p-5">
+              <h2 className="flex items-center gap-2 text-xl"><Building2 className="h-5 w-5 text-primary" /> Confirmed at other hospitals</h2>
+              <ul className="mt-3 space-y-2">
+                {elsewhere.map((f) => (
+                  <li key={f.id} className="rounded-lg bg-card p-3"><b>{f.study}</b> <span className="text-sm text-muted-foreground">· {f.hospital} · {f.doctor} · {f.date}</span>{f.doctorNote && <p className="text-sm">{f.doctorNote}</p>}</li>
+                ))}
+              </ul>
+            </section>
+          )}
           <section id="chat" className="pt-4">
             <h2 className="mb-3 text-2xl">Messages with {p.name}</h2>
             <ChatThread key={p.id} patientId={p.id} viewer="doctor" otherName={p.name} />
@@ -107,7 +121,7 @@ function PatientFile() {
             <ul className="mt-4 space-y-2">
               {p.diagnoses.map((d, i) => (
                 <li key={i} className="flex items-start justify-between gap-2 rounded-lg bg-muted p-3">
-                  <div className="min-w-0"><b>{d.name}</b>{d.note && <p className="text-sm">{d.note}</p>}<p className="text-xs text-muted-foreground">{d.by} · {d.date}</p></div>
+                  <div className="min-w-0"><b>{d.name}</b>{d.note && <p className="text-sm">{d.note}</p>}<p className="text-xs text-muted-foreground">{d.by} · {hospitalOf(d.by, d.hospital)} · {d.date}</p></div>
                   <Button variant="ghost" size="icon" aria-label={`Remove diagnosis ${d.name}`} onClick={() => { if (confirm(`Remove diagnosis "${d.name}"?`)) { removeDiagnosis(p.id, i); toast("Diagnosis removed"); } }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                 </li>
               ))}
@@ -133,7 +147,7 @@ function PatientFile() {
             <ul className="mt-4 space-y-2">
               {p.prescriptions.map((r, i) => (
                 <li key={i} className="flex items-start justify-between gap-2 rounded-lg bg-muted p-3">
-                  <div className="min-w-0"><b>{r.name}</b><p className="text-sm">{r.dose}</p><p className="text-xs text-muted-foreground">{r.by} · {r.date}</p></div>
+                  <div className="min-w-0"><b>{r.name}</b><p className="text-sm">{r.dose}</p><p className="text-xs text-muted-foreground">{r.by} · {hospitalOf(r.by, r.hospital)} · {r.date}</p></div>
                   <Button variant="ghost" size="icon" aria-label={`Remove prescription ${r.name}`} onClick={() => { if (confirm(`Remove prescription "${r.name}"?`)) { removePrescription(p.id, i); toast("Prescription removed"); } }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
                 </li>
               ))}
