@@ -70,8 +70,8 @@ function PatientFile() {
         )}
       </div>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_340px]">
-        <div className="space-y-5">
+      <div className="mt-8 grid min-w-0 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="min-w-0 space-y-5">
           <h2 className="text-2xl">Analyses ({mine.length})</h2>
           {mine.length === 0 && <p className="rounded-xl bg-muted p-6 text-center">No analyses assigned to you.</p>}
           {pending.map((f) => <FindingCard key={f.id} f={f} />)}

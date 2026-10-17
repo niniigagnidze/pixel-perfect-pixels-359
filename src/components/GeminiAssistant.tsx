@@ -14,7 +14,7 @@ export function GeminiAssistant({ request, label, onGenerated }: { request: AiRe
       <span className="text-xs text-muted-foreground">Gemini · sample records only</span>
     </div>
     {ai.loading && !ai.text && <p role="status" className="text-sm text-muted-foreground">Preparing draft…</p>}
-    {ai.text && <div className="whitespace-pre-wrap text-sm leading-relaxed" aria-live="polite">{ai.text}</div>}
+    {ai.text && !(ai.complete && onGenerated) && <div className="whitespace-pre-wrap break-words text-sm leading-relaxed" aria-live="polite">{ai.text}</div>}
     {ai.complete && <p className="text-xs font-semibold text-ai">AI-generated · {request.kind === "summary" ? "informational, not a diagnosis" : "requires clinician review"}</p>}
     {ai.error && <p role="alert" className="text-sm text-destructive">{ai.error}</p>}
   </div>;
