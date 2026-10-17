@@ -24,8 +24,12 @@ export const savePatientSchema = z.object({
   diagnoses: z.array(diagnosisSchema).max(200),
   prescriptions: z.array(prescriptionSchema).max(200),
   findingReviews: z.record(text(16), findingReviewSchema),
-  messages: z.array(messageSchema).max(500).nullable(),
 });
+export const sendMessageSchema = z.object({
+  patientId: patientIdSchema,
+  message: messageSchema.extend({ text: z.string().trim().min(1).max(4000), id: z.string().uuid().or(z.string().regex(/^m\d+$/)) }),
+});
+export type SendMessageInput = z.infer<typeof sendMessageSchema>;
 export type SavePatientInput = z.infer<typeof savePatientSchema>;
 
 export const mockUserSchema = z.object({

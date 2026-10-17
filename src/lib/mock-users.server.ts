@@ -43,7 +43,6 @@ export async function saveMockPatient(input: import("./mock-users").SavePatientI
       diagnoses: input.diagnoses,
       prescriptions: input.prescriptions,
       finding_reviews: input.findingReviews,
-      messages: input.messages,
     })
     .eq("id", input.patientId)
     .eq("is_mock", true);
@@ -51,5 +50,31 @@ export async function saveMockPatient(input: import("./mock-users").SavePatientI
     console.error("Mock patient save failed", error.code);
     throw new Error("Could not save the change. Please try again.");
   }
+  return { ok: true };
+}
+
+
+async function admin() {
+  return (await import("@/integrations/supabase/client.server")).supabaseAdmin;
+}
+
+export async function readMockThreads() {
+  const db = await admin();
+  const { data, error } = await db.from("mock_patients").select("id,messages").eq("is_mock", true).eq("assigned_doctor_id", "d1");
+  if (error) throw new Error("Could not load messages.");
+  const { z } = await import("zod");
+  const { messageSchema } = await import("./mock-users");
+  return Object.fromEntries((data ?? []).map((r) => [r.id, z.array(messageSchema).catch([]).parse(r.messages ?? [])]));
+}
+
+export async function appendMockMessage(input: import("./mock-users").SendMessageInput) {
+  const db = await admin();
+  const { data, error } = await db.from("mock_patients").select("messages").eq("id", input.patientId).eq("is_mock", true).single();
+  if (error) throw new Error("Could not send the message. Please try again.");
+  const existing = (Array.isArray(data.messages) ? data.messages : []) as { id: string }[];
+  if (existing.some((m) => m.id === input.message.id)) return { ok: true };
+  const next = [...existing, input.message].slice(-500);
+  const { error: upErr } = await db.from("mock_patients").update({ messages: next }).eq("id", input.patientId).eq("is_mock", true);
+  if (upErr) throw new Error("Could not send the message. Please try again.");
   return { ok: true };
 }
