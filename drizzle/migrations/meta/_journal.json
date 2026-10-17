@@ -15,6 +15,13 @@
       "when": 1792250497018,
       "tag": "0001_restrict_mock_directory_writes",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792252356097,
+      "tag": "0002_mock_patient_activity",
+      "breakpoints": true
     }
   ]
 }
