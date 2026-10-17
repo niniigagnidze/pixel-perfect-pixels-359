@@ -8,6 +8,13 @@
       "when": 1792250400087,
       "tag": "0000_create_mock_users",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1792250497018,
+      "tag": "0001_restrict_mock_directory_writes",
+      "breakpoints": true
     }
   ]
 }
