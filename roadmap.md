@@ -4,6 +4,6 @@
 - [x] Test streaming and check the app; real records remain blocked from AI inputs until clinical accounts and record permissions exist.
 
 # Mock-user backend
-- [ ] Create read-only mock users, persona assignments and sample patient records in Lovable Cloud.
-- [ ] Load the existing patient list from saved sample records without exposing real records or enabling public writes.
-- [ ] Test database access and the patient-search flow; distinguish sample users from sign-in accounts.
+- [x] Create read-only mock users, persona assignments and sample patient records in Lovable Cloud.
+- [x] Load the existing patient list from saved sample records without exposing real records or enabling public writes.
+- [x] Test database access and the patient-search flow; distinguish sample users from sign-in accounts.
