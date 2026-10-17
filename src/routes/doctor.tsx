@@ -31,7 +31,7 @@ function DoctorPage() {
 
   return (
     <Shell side="doctor">
-      <h1 className="text-4xl">My patients</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2"><h1 className="text-4xl">My patients</h1><DoctorSwitcher /></div>
       <p className="mt-1 text-muted-foreground">{doctor.name} · {doctor.hospital} · Search by personal number (SSN) or name.</p>
 
       <div className="relative mt-6 max-w-md">
