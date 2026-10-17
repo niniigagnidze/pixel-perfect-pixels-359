@@ -1,12 +1,33 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi, afterEach } from "vitest";
 import { aiRequestSchema, readGeminiStream } from "@/lib/gemini-protocol";
-import { buildDemoPrompt, handleGeminiRequest } from "@/lib/gemini.server";
+import { buildDemoPrompt, handleGeminiRequest, cancellationSafeStream } from "@/lib/gemini.server";
 
 function stream(data: string) {
   const bytes = new TextEncoder().encode(data);
   return new ReadableStream<Uint8Array>({ start(controller) { for (const byte of bytes) controller.enqueue(new Uint8Array([byte])); controller.close(); } });
 }
 describe("Gemini clinical safety", () => {
+  afterEach(() => { vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
+  it("returns 499 when fetching headers is cancelled across error realms", async () => {
+    vi.stubEnv("GOOGLE_API_KEY", "test-key");
+    vi.stubGlobal("fetch", vi.fn().mockRejectedValue({ name: "AbortError", message: "This operation was aborted" }));
+    const response = await handleGeminiRequest(new Request("https://curely.example/api/ai", { method: "POST", headers: { origin: "https://curely.example", "content-type": "application/json" }, body: JSON.stringify({ kind: "care", patientId: "p2" }) }));
+    expect(response.status).toBe(499);
+  });
+  it("closes without throwing when Gemini aborts after headers", async () => {
+    const body = new ReadableStream<Uint8Array>({ pull(controller) { controller.error(new DOMException("This operation was aborted", "AbortError")); } });
+    const reader = cancellationSafeStream(body, new AbortController().signal).getReader();
+    await expect(reader.read()).resolves.toEqual({ done: true, value: undefined });
+  });
+  it("handles cancelled request-body reads before fetching Gemini", async () => {
+    const request = new Request("https://curely.example/api/ai", { method: "POST", headers: { origin: "https://curely.example", "content-type": "application/json" }, body: "{}" });
+    vi.spyOn(request, "text").mockRejectedValue(new DOMException("Aborted", "AbortError"));
+    expect((await handleGeminiRequest(request)).status).toBe(499);
+  });
+  it("does not treat a genuine stream failure as successful output", async () => {
+    const body = new ReadableStream<Uint8Array>({ pull(controller) { controller.error(new Error("Network failed")); } });
+    await expect(cancellationSafeStream(body, new AbortController().signal).getReader().read()).rejects.toThrow("interrupted");
+  });
   it("keeps names and social security numbers out of the AI context", () => {
     const data = JSON.stringify(buildDemoPrompt({ kind: "care", patientId: "p1" }));
     expect(data).not.toContain("Ana Beridze");

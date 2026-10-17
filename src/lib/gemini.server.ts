@@ -22,7 +22,12 @@ export async function handleGeminiRequest(request: Request) {
   // This integration is deliberately sample-only until clinical authentication and record access are implemented.
   if (request.headers.get("origin") !== new URL(request.url).origin) return Response.json({ message: "Request must come from Curely." }, { status: 403 });
   if (!request.headers.get("content-type")?.includes("application/json")) return Response.json({ message: "Expected a JSON request." }, { status: 415 });
-  const raw = await request.text();
+  let raw: string;
+  try { raw = await request.text(); }
+  catch (error) {
+    if (isCancellation(error, request.signal)) return new Response(null, { status: 499 });
+    return Response.json({ message: "Could not read the request." }, { status: 400 });
+  }
   if (raw.length > 1024) return Response.json({ message: "Request too large." }, { status: 413 });
   let prompt: ReturnType<typeof buildDemoPrompt>;
   try { prompt = buildDemoPrompt(aiRequestSchema.parse(JSON.parse(raw))); }
@@ -39,9 +44,43 @@ export async function handleGeminiRequest(request: Request) {
       const messages: Record<number, string> = { 400: "Gemini rejected the request configuration.", 401: "The Gemini key is invalid. Update GOOGLE_API_KEY in Lovable Cloud → Secrets.", 403: "Google denied this request. Check your key's Gemini API access and account permissions.", 404: "The configured Gemini model is unavailable for this Google account.", 429: "Your Gemini quota is exhausted or rate limited. Check Google AI Studio billing and quota before trying again." };
       return Response.json({ message: messages[upstream.status] ?? "Gemini is temporarily unavailable. Try again later." }, { status: upstream.status, headers: { "Cache-Control": "no-store" } });
     }
-    return new Response(upstream.body, { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-store, no-transform" } });
+    // Fetch resolves at headers: later aborts happen on the body, outside this
+    // try/catch. Own the reader so normal Stop/disconnects end cleanly.
+    const body = upstream.body ? cancellationSafeStream(upstream.body, request.signal) : null;
+    return new Response(body, { headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-store, no-transform" } });
   } catch (error) {
-    if (request.signal.aborted || (error instanceof Error && error.name === "AbortError")) return new Response(null, { status: 499 });
+    if (isCancellation(error, request.signal)) return new Response(null, { status: 499 });
     return Response.json({ message: "Could not reach Gemini. Try again later." }, { status: 502 });
   }
+}
+
+function isCancellation(error: unknown, signal: AbortSignal) {
+  return signal.aborted || (typeof error === "object" && error !== null && "name" in error && error.name === "AbortError");
+}
+
+export function cancellationSafeStream(body: ReadableStream<Uint8Array>, signal: AbortSignal) {
+  const reader = body.getReader();
+  let ended = false;
+  return new ReadableStream<Uint8Array>({
+    async pull(controller) {
+      try {
+        const { done, value } = await reader.read();
+        if (ended) return;
+        if (done) { ended = true; controller.close(); reader.releaseLock(); }
+        else controller.enqueue(value);
+      } catch (error) {
+        if (ended) return;
+        ended = true;
+        if (isCancellation(error, signal)) controller.close();
+        else controller.error(new Error("Gemini's response was interrupted."));
+        reader.releaseLock();
+      }
+    },
+    async cancel(reason) {
+      ended = true;
+      try { await reader.cancel(reason); }
+      catch { /* Disconnect cleanup must not create an unhandled rejection. */ }
+      finally { reader.releaseLock(); }
+    },
+  });
 }
