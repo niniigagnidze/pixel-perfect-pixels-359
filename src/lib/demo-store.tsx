@@ -197,6 +197,9 @@ interface Ctx {
   addDiagnosis: (pid: string, name: string, note: string) => void;
   addPrescription: (pid: string, name: string, dose: string) => void;
   setPatientStatus: (pid: string, status: "pending" | "done") => void;
+  removeDiagnosis: (pid: string, index: number) => void;
+  removePrescription: (pid: string, index: number) => void;
+  undoReview: (id: string) => void;
   messages: Message[];
   audit: AuditEntry[];
   sharing: Record<string, Record<string, boolean>>;
@@ -262,6 +265,29 @@ export function DemoProvider({ children, savedPatients = initialPatients }: { ch
     setPatients((ps) => ps.map((p) => (p.id === pid ? { ...p, status, completedAt: status === "done" ? now() : undefined } : p)));
     setAudit((a) => [{ who: CURRENT_DOCTOR, what: `${status === "done" ? "Marked done" : "Reopened"}: ${pname(pid)}`, when: now() }, ...a]);
   };
+  const removeDiagnosis: Ctx["removeDiagnosis"] = (pid, index) => {
+    const d = patients.find((p) => p.id === pid)?.diagnoses[index];
+    if (!d) return;
+    touch(pid);
+    setPatients((ps) => ps.map((p) => (p.id === pid ? { ...p, diagnoses: p.diagnoses.filter((_, i) => i !== index) } : p)));
+    setAudit((a) => [{ who: CURRENT_DOCTOR, what: `Removed diagnosis for ${pname(pid)}: ${d.name}`, when: now() }, ...a]);
+  };
+  const removePrescription: Ctx["removePrescription"] = (pid, index) => {
+    const r = patients.find((p) => p.id === pid)?.prescriptions[index];
+    if (!r) return;
+    touch(pid);
+    setPatients((ps) => ps.map((p) => (p.id === pid ? { ...p, prescriptions: p.prescriptions.filter((_, i) => i !== index) } : p)));
+    setAudit((a) => [{ who: CURRENT_DOCTOR, what: `Removed prescription ${r.name} for ${pname(pid)}`, when: now() }, ...a]);
+  };
+  const undoReview: Ctx["undoReview"] = (id) => {
+    const f = findings.find((x) => x.id === id);
+    if (!f || f.status === "pending") return;
+    touch(f.patientId);
+    setFindings((fs) => fs.map((x) => (x.id === id ? { ...x, status: "pending", doctorNote: undefined, plan: undefined, reviewedAt: undefined } : x)));
+    setAudit((a) => [{ who: f.doctor, what: `Withdrew review of ${f.study} (back to pending)`, when: now() }, ...a]);
+    if (f.status === "approved")
+      setMessages((m) => [...m, { id: crypto.randomUUID(), from: "doctor", doctor: f.doctor, text: `Correction: my earlier review of your ${f.study} was withdrawn and is being reviewed again.`, time: now() }]);
+  };
   const [audit, setAudit] = useState<AuditEntry[]>([
     { who: "Dr. Giorgi Kapanadze", what: "Approved lipid panel summary", when: "14 Oct, 16:20" },
     { who: "Curely AI (Spine)", what: "Pre-analyzed spine X-ray", when: "15 Oct, 08:02" },
@@ -306,7 +332,7 @@ export function DemoProvider({ children, savedPatients = initialPatients }: { ch
   const setTwoStep = (v: boolean) => { setTwo(v); log(`${v ? "Enabled" : "Disabled"} 2-step verification`); };
   const canSee = (person: string, cat: string) => !confidential && !privateCats[cat] && !!sharing[person]?.[cat];
 
-  return <DemoCtx.Provider value={{ confidential, setConfidential, privateCats, togglePrivate, twoStep, setTwoStep, canSee, findings, patients, addDiagnosis, addPrescription, setPatientStatus, messages, audit, sharing, review, send, toggleShare }}>{children}</DemoCtx.Provider>;
+  return <DemoCtx.Provider value={{ confidential, setConfidential, privateCats, togglePrivate, twoStep, setTwoStep, canSee, findings, patients, addDiagnosis, addPrescription, setPatientStatus, removeDiagnosis, removePrescription, undoReview, messages, audit, sharing, review, send, toggleShare }}>{children}</DemoCtx.Provider>;
 }
 
 export function useDemo() {

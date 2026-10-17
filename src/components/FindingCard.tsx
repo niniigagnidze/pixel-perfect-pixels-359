@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { toast } from "sonner";
-import { AlertTriangle, Bot, Check, X } from "lucide-react";
+import { AlertTriangle, Bot, Check, RotateCcw, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useDemo, type Finding, type Plan } from "@/lib/demo-store";
@@ -9,7 +9,7 @@ import { GeminiAssistant } from "@/components/GeminiAssistant";
 const plans: Plan[] = ["No visit needed", "Book follow-up visit", "Order more tests"];
 
 export function FindingCard({ f }: { f: Finding }) {
-  const { review } = useDemo();
+  const { review, undoReview } = useDemo();
   const [text, setText] = useState(f.aiSuggestion);
   const [generated, setGenerated] = useState(false);
   const [note, setNote] = useState("");
@@ -40,7 +40,12 @@ export function FindingCard({ f }: { f: Finding }) {
       ))}
 
       {done ? (
-        <p className="mt-4 text-sm text-muted-foreground">Note: {f.doctorNote} · Plan: {f.plan} · {f.reviewedAt}</p>
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-muted-foreground">Note: {f.doctorNote} · Plan: {f.plan} · {f.reviewedAt}</p>
+          <Button variant="outline" size="sm" onClick={() => { if (confirm("Undo this review and send it back to Needs review?")) { undoReview(f.id); setText(f.aiSuggestion); toast("Review withdrawn — back to Needs review"); } }}>
+            <RotateCcw className="h-4 w-4" /> Undo review
+          </Button>
+        </div>
       ) : (
         <div className="mt-4 space-y-3">
           <Textarea placeholder="Note for the patient (plain language)…" value={note} onChange={(e) => setNote(e.target.value)} />
