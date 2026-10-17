@@ -163,7 +163,7 @@ export interface DoctorPatient {
   diagnoses: Diagnosis[];
   prescriptions: Prescription[];
   completedAt?: string | undefined;
-  findingReviews?: Record<string, Partial<Pick<Finding, "status" | "doctorNote" | "plan" | "reviewedAt" | "aiSuggestion">>> | undefined;
+  findingReviews?: Record<string, { status: FindingStatus; doctorNote?: string | undefined; plan?: Plan | undefined; reviewedAt?: string | undefined; aiSuggestion?: string | undefined }> | undefined;
   messages?: Message[] | undefined;
 }
 
@@ -220,7 +220,10 @@ function now() {
 
 export function DemoProvider({ children, savedPatients = initialPatients }: { children: ReactNode; savedPatients?: DoctorPatient[] }) {
   const [findings, setFindings] = useState<Finding[]>(() =>
-    initialFindings.map((f) => ({ ...f, ...(savedPatients.find((p) => p.id === f.patientId)?.findingReviews?.[f.id] ?? {}) }) as Finding),
+    initialFindings.map((f) => {
+      const r = savedPatients.find((p) => p.id === f.patientId)?.findingReviews?.[f.id];
+      return r ? { ...f, status: r.status, doctorNote: r.doctorNote, plan: r.plan, reviewedAt: r.reviewedAt, aiSuggestion: r.aiSuggestion ?? f.aiSuggestion } : f;
+    }),
   );
   const [messages, setMessages] = useState<Message[]>(() => savedPatients.find((p) => p.id === "p1")?.messages ?? initialMessages);
   const [patients, setPatients] = useState(savedPatients);
