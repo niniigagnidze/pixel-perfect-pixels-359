@@ -7,3 +7,8 @@
 - [x] Create read-only mock users, persona assignments and sample patient records in Lovable Cloud.
 - [x] Load the existing patient list from saved sample records without exposing real records or enabling public writes.
 - [x] Test database access and the patient-search flow; distinguish sample users from sign-in accounts.
+
+# Multi-hospital conversations
+- [ ] Separate patient conversations by doctor and hospital, including scoped unread state.
+- [ ] Ensure each hospital's doctor can manage their own patient queue and contribute to the combined record.
+- [ ] Verify persisted updates, cross-doctor chat isolation and hospital labels in both portals.
