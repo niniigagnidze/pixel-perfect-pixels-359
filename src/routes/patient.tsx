@@ -29,7 +29,15 @@ function Card({ title, icon, children }: { title: string; icon: React.ReactNode;
 }
 
 function PatientPage() {
-  const { findings: all } = useDemo();
+  const { findings: all, patients } = useDemo();
+  const me = patients.find((p) => p.id === "p1");
+  const medications = me
+    ? me.prescriptions.map((r) => ({ name: r.name, dose: r.dose, by: r.by, since: r.date }))
+    : patient.medications;
+  const conditions = [
+    ...(me ? me.diagnoses.map((d) => ({ name: d.name, status: "Active", by: d.by, date: d.date, note: d.note })) : []),
+    ...patient.conditions.filter((c) => c.status === "Past").map((c) => ({ ...c, note: "" })),
+  ];
   const findings = all.filter((f) => f.patientId === "p1");
   const approved = findings.filter((f) => f.status === "approved");
   const pending = findings.filter((f) => f.status === "pending");
@@ -119,16 +127,17 @@ function PatientPage() {
 
         <Card title="Medications" icon={<Pill className="h-5 w-5 text-primary" />}>
           <ul className="space-y-3">
-            {patient.medications.map((m) => (
-              <li key={m.name}><b>{m.name}</b><p className="text-sm text-muted-foreground">{m.dose} · prescribed by {m.by} · since {m.since}</p></li>
+            {medications.length === 0 && <li className="text-muted-foreground">No medicines prescribed.</li>}
+            {medications.map((m, i) => (
+              <li key={`${m.name}-${i}`}><b>{m.name}</b><p className="text-sm text-muted-foreground">{m.dose} · prescribed by {m.by} · since {m.since}</p></li>
             ))}
           </ul>
         </Card>
 
         <Card title="Conditions & surgeries" icon={<FileText className="h-5 w-5 text-primary" />}>
           <ul className="space-y-3">
-            {patient.conditions.map((c) => (
-              <li key={c.name}><b>{c.name}</b> <span className="ml-1 rounded-full bg-secondary px-2 text-sm">{c.status}</span><p className="text-sm text-muted-foreground">{c.by} · {c.date}</p></li>
+            {conditions.map((c, i) => (
+              <li key={`${c.name}-${i}`}><b>{c.name}</b> <span className="ml-1 rounded-full bg-secondary px-2 text-sm">{c.status}</span>{c.note && <p className="text-sm">{c.note}</p>}<p className="text-sm text-muted-foreground">{c.by} · {c.date}</p></li>
             ))}
           </ul>
         </Card>

@@ -19,7 +19,7 @@ export async function readMockDirectory() {
   });
   const [users, patients, personas] = await Promise.all([
     client.from("mock_users").select("id,display_name,email,is_mock").eq("is_mock", true).order("id"),
-    client.from("mock_patients").select("id,assigned_doctor_id,sample_ssn,dob,blood_type,allergies,status,diagnoses,prescriptions,completed_at,is_mock").eq("is_mock", true).eq("assigned_doctor_id", "d1").order("id"),
+    client.from("mock_patients").select("id,assigned_doctor_id,sample_ssn,dob,blood_type,allergies,status,diagnoses,prescriptions,completed_at,is_mock,finding_reviews,messages").eq("is_mock", true).eq("assigned_doctor_id", "d1").order("id"),
     client.from("mock_personas").select("user_id,persona,is_mock").eq("is_mock", true).order("user_id"),
   ]);
   if (users.error || patients.error || personas.error) {
@@ -31,4 +31,25 @@ export async function readMockDirectory() {
     personas: z.array(mockPersonaSchema).parse(personas.data),
     patients: mapMockPatients(users.data, patients.data),
   };
+}
+
+export async function saveMockPatient(input: import("./mock-users").SavePatientInput) {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { error } = await supabaseAdmin
+    .from("mock_patients")
+    .update({
+      status: input.status,
+      completed_at: input.completedAt,
+      diagnoses: input.diagnoses,
+      prescriptions: input.prescriptions,
+      finding_reviews: input.findingReviews,
+      messages: input.messages,
+    })
+    .eq("id", input.patientId)
+    .eq("is_mock", true);
+  if (error) {
+    console.error("Mock patient save failed", error.code);
+    throw new Error("Could not save the change. Please try again.");
+  }
+  return { ok: true };
 }
