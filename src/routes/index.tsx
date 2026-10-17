@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { HeartPulse, User, Stethoscope, ShieldCheck, Sparkles as _s } from "lucide-react";
+import { HeartPulse, User, Stethoscope, ShieldCheck } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -12,7 +12,6 @@ export const Route = createFileRoute("/")({
   }),
   component: Home,
 });
-void _s;
 
 function Home() {
   return (
