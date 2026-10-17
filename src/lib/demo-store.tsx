@@ -287,7 +287,7 @@ export function DemoProvider({ children, savedPatients = initialPatients }: { ch
     }
   };
 
-  const send: Ctx["send"] = (m) => { touch("p1"); setMessages((ms) => [...ms, { ...m, id: crypto.randomUUID(), time: now() }]);
+  const send: Ctx["send"] = (m) => { touch("p1"); setMessages((ms) => [...ms, { ...m, id: crypto.randomUUID(), time: now() }]); };
 
   const toggleShare = (person: string, cat: string) => {
     setSharing((s) => ({ ...s, [person]: { ...s[person], [cat]: !s[person]?.[cat] } }));
