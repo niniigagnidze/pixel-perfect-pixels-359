@@ -1,10 +1,13 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 
+export const CURRENT_DOCTOR = "Dr. Giorgi Kapanadze";
+
 export type FindingStatus = "pending" | "approved" | "rejected";
 export type Plan = "No visit needed" | "Book follow-up visit" | "Order more tests";
 
 export interface Finding {
   id: string;
+  patientId: string;
   specialty: string;
   doctor: string;
   source: string;
@@ -83,6 +86,7 @@ export const labs = [
 const initialFindings: Finding[] = [
   {
     id: "f1",
+    patientId: "p1",
     specialty: "Orthopedics · Spine",
     doctor: "Dr. Nika Tsiklauri",
     source: "Tbilisi Central Hospital · Radiology",
@@ -96,6 +100,7 @@ const initialFindings: Finding[] = [
   },
   {
     id: "f2",
+    patientId: "p1",
     specialty: "Cardiology",
     doctor: "Dr. Mariam Lomidze",
     source: "Curely Partner Lab",
@@ -108,6 +113,7 @@ const initialFindings: Finding[] = [
   },
   {
     id: "f3",
+    patientId: "p1",
     specialty: "Family medicine",
     doctor: "Dr. Giorgi Kapanadze",
     source: "Curely Partner Lab",
@@ -121,6 +127,51 @@ const initialFindings: Finding[] = [
     plan: "No visit needed",
     reviewedAt: "14 Oct 2026, 16:20",
   },
+  {
+    id: "f4", patientId: "p2", specialty: "Family medicine", doctor: CURRENT_DOCTOR, source: "Curely Partner Lab", date: "16 Oct 2026",
+    study: "Complete blood count", aiSuggestion: "Hemoglobin 10.9 g/dL (low), MCV 76 fL (low). Pattern suggests iron-deficiency anemia.",
+    confidence: 0.87, flags: ["Hemoglobin below normal range"], status: "pending",
+  },
+  {
+    id: "f5", patientId: "p2", specialty: "Family medicine", doctor: CURRENT_DOCTOR, source: "Curely Partner Lab", date: "16 Oct 2026",
+    study: "Ferritin", aiSuggestion: "Ferritin 8 ng/mL (low). Consistent with depleted iron stores.",
+    confidence: 0.93, flags: [], status: "pending",
+  },
+  {
+    id: "f6", patientId: "p3", specialty: "Family medicine", doctor: CURRENT_DOCTOR, source: "Tbilisi Central Hospital", date: "15 Oct 2026",
+    study: "Fasting glucose & HbA1c", aiSuggestion: "Fasting glucose 7.4 mmol/L, HbA1c 6.9 %. Meets criteria for type 2 diabetes.",
+    confidence: 0.9, flags: ["Patient reports sulfa allergy"], status: "pending",
+  },
+  {
+    id: "f7", patientId: "p4", specialty: "Family medicine", doctor: CURRENT_DOCTOR, source: "Curely Partner Lab", date: "10 Oct 2026",
+    study: "Thyroid panel (TSH)", aiSuggestion: "TSH 2.1 mIU/L, within normal range.",
+    confidence: 0.96, flags: [], status: "approved", doctorNote: "Thyroid normal.", plan: "No visit needed", reviewedAt: "11 Oct 2026, 10:05",
+  },
+];
+
+export interface Diagnosis { name: string; note: string; date: string; by: string }
+export interface Prescription { name: string; dose: string; date: string; by: string }
+export interface DoctorPatient {
+  id: string;
+  name: string;
+  ssn: string;
+  dob: string;
+  bloodType: string;
+  allergies: string[];
+  status: "pending" | "done";
+  diagnoses: Diagnosis[];
+  prescriptions: Prescription[];
+  completedAt?: string;
+}
+
+const initialPatients: DoctorPatient[] = [
+  { id: "p1", name: "Ana Beridze", ssn: "01024056789", dob: "14 Mar 1979", bloodType: "A+", allergies: ["Penicillin (severe)", "Pollen"], status: "pending",
+    diagnoses: [{ name: "Mild hypercholesterolemia", note: "Diet + statin.", date: "12 Feb 2026", by: CURRENT_DOCTOR }],
+    prescriptions: [{ name: "Atorvastatin 10 mg", dose: "Once daily, evening", date: "12 Feb 2026", by: CURRENT_DOCTOR }] },
+  { id: "p2", name: "Davit Javakhishvili", ssn: "01017033412", dob: "02 Jul 1990", bloodType: "O+", allergies: [], status: "pending", diagnoses: [], prescriptions: [] },
+  { id: "p3", name: "Nino Chkheidze", ssn: "01008022987", dob: "21 Nov 1965", bloodType: "B-", allergies: ["Sulfonamides"], status: "pending", diagnoses: [], prescriptions: [] },
+  { id: "p4", name: "Irakli Maisuradze", ssn: "01030011245", dob: "09 Jan 1984", bloodType: "AB+", allergies: [], status: "done",
+    diagnoses: [{ name: "No thyroid disease", note: "Routine check normal.", date: "11 Oct 2026", by: CURRENT_DOCTOR }], prescriptions: [], completedAt: "11 Oct 2026, 10:10" },
 ];
 
 const initialMessages: Message[] = [
@@ -139,6 +190,10 @@ export const shareCategories = ["Allergies", "Medications", "Conditions", "Lab r
 
 interface Ctx {
   findings: Finding[];
+  patients: DoctorPatient[];
+  addDiagnosis: (pid: string, name: string, note: string) => void;
+  addPrescription: (pid: string, name: string, dose: string) => void;
+  setPatientStatus: (pid: string, status: "pending" | "done") => void;
   messages: Message[];
   audit: AuditEntry[];
   sharing: Record<string, Record<string, boolean>>;
@@ -156,6 +211,21 @@ function now() {
 export function DemoProvider({ children }: { children: ReactNode }) {
   const [findings, setFindings] = useState(initialFindings);
   const [messages, setMessages] = useState(initialMessages);
+  const [patients, setPatients] = useState(initialPatients);
+  const pname = (pid: string) => patients.find((p) => p.id === pid)?.name ?? "patient";
+  const today = () => new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+  const addDiagnosis: Ctx["addDiagnosis"] = (pid, name, note) => {
+    setPatients((ps) => ps.map((p) => (p.id === pid ? { ...p, diagnoses: [{ name, note, date: today(), by: CURRENT_DOCTOR }, ...p.diagnoses] } : p)));
+    setAudit((a) => [{ who: CURRENT_DOCTOR, what: `Diagnosed ${pname(pid)}: ${name}`, when: now() }, ...a]);
+  };
+  const addPrescription: Ctx["addPrescription"] = (pid, name, dose) => {
+    setPatients((ps) => ps.map((p) => (p.id === pid ? { ...p, prescriptions: [{ name, dose, date: today(), by: CURRENT_DOCTOR }, ...p.prescriptions] } : p)));
+    setAudit((a) => [{ who: CURRENT_DOCTOR, what: `Prescribed ${name} to ${pname(pid)}`, when: now() }, ...a]);
+  };
+  const setPatientStatus: Ctx["setPatientStatus"] = (pid, status) => {
+    setPatients((ps) => ps.map((p) => (p.id === pid ? { ...p, status, completedAt: status === "done" ? now() : undefined } : p)));
+    setAudit((a) => [{ who: CURRENT_DOCTOR, what: `${status === "done" ? "Marked done" : "Reopened"}: ${pname(pid)}`, when: now() }, ...a]);
+  };
   const [audit, setAudit] = useState<AuditEntry[]>([
     { who: "Dr. Giorgi Kapanadze", what: "Approved lipid panel summary", when: "14 Oct, 16:20" },
     { who: "Curely AI (Spine)", what: "Pre-analyzed spine X-ray", when: "15 Oct, 08:02" },
@@ -190,7 +260,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     setAudit((a) => [{ who: patient.name, what: `Changed sharing of ${cat} with ${person}`, when: now() }, ...a]);
   };
 
-  return <DemoCtx.Provider value={{ findings, messages, audit, sharing, review, send, toggleShare }}>{children}</DemoCtx.Provider>;
+  return <DemoCtx.Provider value={{ findings, patients, addDiagnosis, addPrescription, setPatientStatus, messages, audit, sharing, review, send, toggleShare }}>{children}</DemoCtx.Provider>;
 }
 
 export function useDemo() {
