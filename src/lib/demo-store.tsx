@@ -18,9 +18,9 @@ export interface Finding {
   confidence: number;
   flags: string[];
   status: FindingStatus;
-  doctorNote?: string;
-  plan?: Plan;
-  reviewedAt?: string;
+  doctorNote?: string | undefined;
+  plan?: Plan | undefined;
+  reviewedAt?: string | undefined;
 }
 
 export interface Message {
